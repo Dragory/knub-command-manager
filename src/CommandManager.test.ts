@@ -1,6 +1,5 @@
 import { expect, assert } from "chai";
 import { CommandManager } from "./CommandManager";
-import { CommandMatchError } from "./CommandMatchError";
 import { MatchedCommand } from "./types";
 
 describe("CommandManager", () => {

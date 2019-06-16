@@ -1,5 +1,4 @@
 export { MatchedCommand, CommandConfig } from "./types";
-export { CommandMatchError } from "./CommandMatchError";
 
 export { CommandManager } from "./CommandManager";
 export { parseArguments } from "./parseArguments";

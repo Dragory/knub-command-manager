@@ -16,7 +16,6 @@ import {
   TypeConverterFn
 } from "./types";
 import { defaultParameterTypes } from "./defaultParameterTypes";
-import { CommandMatchError } from "./CommandMatchError";
 import { parseArguments } from "./parseArguments";
 import { TypeConversionError } from "./TypeConversionError";
 
