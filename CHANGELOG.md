@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.3
+* Fix incorrect parsing of catch-all arguments as first arguments
+  * The catch-all argument also included the preceding space
+
 ## 3.1.2
 * Triggers now only match if they're followed by whitespace or the end of the string.
 This fixes short triggers, e.g. `s`, matching the beginning of longer triggers, e.g. `suspend`.
