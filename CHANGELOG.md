@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.1.0
+* Export `TypeConversionError`
+
 ## 3.0.0
 * Deprecate `TCustomProps` generic type that was used to store data with commands
 * Add `TFilterContext` generic type to CommandManager. Setting this allows you to pass additional context data when
