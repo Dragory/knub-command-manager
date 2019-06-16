@@ -2,7 +2,7 @@
   "name": "knub-command-manager",
   "version": "1.0.0",
   "description": "An easy-to-use library for defining and matching text-based commands with arguments and options",
-  "main": "dist/CommandManager.js",
+  "main": "dist/index.js",
   "scripts": {
     "test": "mocha --exit -r ts-node/register src/**/*.test.ts -- --trace-warnings",
     "precommit": "lint-staged",
