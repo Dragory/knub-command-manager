@@ -1,5 +1,5 @@
 {
-  "name": "@mivir/command-manager",
+  "name": "knub-command-manager",
   "version": "1.0.0",
   "description": "",
   "main": "dist/CommandManager.js",
@@ -9,7 +9,7 @@
     "build": "touch dist && rm -r dist && tsc",
     "prepublishOnly": "npm run build",
     "watch": "touch dist && rm -r dist && tsc --watch",
-    "format": "prettier --write \"{src,test}/**/*.ts\""
+    "format": "prettier --write \"src/**/*.ts\""
   },
   "keywords": [],
   "author": "Miikka Virtanen <contact@mivir.fi>",
@@ -31,5 +31,16 @@
     "tslint": "^5.17.0",
     "tslint-config-prettier": "^1.18.0",
     "typescript": "^3.5.2"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
+  },
+  "lint-staged": {
+    "*.ts": [
+      "prettier --write",
+      "git add"
+    ]
   }
 }
