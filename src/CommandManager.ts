@@ -4,7 +4,7 @@ import {
     ArgumentMap,
     CommandConfig,
     CommandDefinition,
-    CommandManagerOptions, FlagOption,
+    CommandManagerOptions, CommandMatchResult, CommandMatchResultError, CommandMatchResultSuccess, FlagOption,
     MatchedCommand, MatchedOptionMap, OptionWithValue,
     Parameter,
     TypeConverterFn
@@ -28,7 +28,7 @@ const paramDefinitionRegex = new RegExp(
 );
 
 const optMatchRegex = /^--([^\s-]\S*?)(?:=(.+))?$/;
-const optShortcutMatchRegex = /^-([^\s-]+)(?:=(.+))?$/;
+const optShortcutMatchRegex = /^-([^\s-]+?)(?:=(.+))?$/;
 
 const defaultParameter: Partial<Parameter> = {
     required: true,
@@ -37,21 +37,27 @@ const defaultParameter: Partial<Parameter> = {
     catchAll: false
 };
 
-export class CommandManager<T extends CommandConfig = CommandConfig> {
-    protected commands: CommandDefinition<T>[] = [];
+export class CommandManager<TCustomProps = {}> {
+    protected commands: CommandDefinition<TCustomProps>[] = [];
 
-    protected prefixRegex: RegExp;
+    protected defaultPrefix: RegExp | null = null;
     protected types: { [key: string]: TypeConverterFn };
     protected defaultType: string;
 
     constructor(opts: CommandManagerOptions) {
-        const prefix = typeof opts.prefix === "string"
-            ? new RegExp(escapeStringRegex(opts.prefix), 'i')
-            : opts.prefix;
-        this.prefixRegex = new RegExp(`^${prefix.source}`, prefix.flags);
+        if (opts.prefix != null) {
+            const prefix = typeof opts.prefix === "string"
+                ? new RegExp(escapeStringRegex(opts.prefix), 'i')
+                : opts.prefix;
+            this.defaultPrefix = new RegExp(`^${prefix.source}`, prefix.flags);
+        }
 
         this.types = opts.types || defaultParameterTypes;
         this.defaultType = opts.defaultType || "string";
+
+        if (!this.types[this.defaultType]) {
+            throw new Error(`Default type "${this.defaultType}" not found in types!`);
+        }
     }
 
     /**
@@ -73,42 +79,32 @@ export class CommandManager<T extends CommandConfig = CommandConfig> {
     public add(
         trigger: string | RegExp,
         parameters: string | Parameter[] = [],
-        config?: T
+        config: CommandConfig<TCustomProps> = {},
+        customProps?: TCustomProps
     ): () => void {
-        // First check if this command has aliases and/or parameter overloads
-        // If it does, add each combination of those as its own command
-        if (config) {
-            const aliases = [trigger];
-            if (config.aliases) aliases.push(...config.aliases);
-
-            const overloads = [parameters];
-            if (config.overloads) overloads.push(...config.overloads);
-
-            if (aliases.length > 1 || overloads.length > 1) {
-                const strippedConfig = {...config};
-                delete strippedConfig.aliases;
-                delete strippedConfig.overloads;
-
-                const deleteCmdFns: Array<() => void> = [];
-                for (const alias of aliases) {
-                    for (const overload of overloads) {
-                        deleteCmdFns.push(this.add(alias, overload, strippedConfig));
-                    }
-                }
-
-                return () => {
-                    deleteCmdFns.forEach(fn => fn());
-                };
+        // If we're overriding the default prefix, convert the new prefix to a regex (or keep it as null for no prefix)
+        let prefix = this.defaultPrefix;
+        if (config.prefix !== undefined) {
+            if (config.prefix === null) {
+                prefix = null;
+            } else if (typeof config.prefix === "string") {
+                prefix = new RegExp(escapeStringRegex(config.prefix), 'i');
+            } else {
+                prefix = config.prefix;
             }
         }
 
-        // Command can either be a plain string or a regex
-        // If string, escape it and turn it into regex
-        if (typeof trigger === "string") {
-            trigger = new RegExp(escapeStringRegex(trigger), "i");
-        }
+        // Combine all triggers (main trigger + aliases) to a regex
+        const triggers = [trigger];
+        if (config && config.aliases) triggers.push(...config.aliases);
 
-        const triggerRegex = new RegExp(`^${trigger.source}`, trigger.flags);
+        const regexTriggers = triggers.map(trigger => {
+            if (typeof trigger === "string") {
+                return new RegExp(escapeStringRegex(trigger), "i");
+            }
+
+            return new RegExp(`^${trigger.source}`, trigger.flags);
+        });
 
         // If parameters are provided in string format, parse it
         if (typeof parameters === "string") {
@@ -130,9 +126,13 @@ export class CommandManager<T extends CommandConfig = CommandConfig> {
             }
 
             if (!param.required) {
+                if (hadOptional) {
+                    throw new Error(`Can only have 1 optional parameter to avoid ambiguity`);
+                }
+
                 hadOptional = true;
             } else if (hadOptional) {
-                throw new Error(`Optional parameters must come last`);
+                throw new Error(`Optional parameter must come last`);
             }
 
             if (hadRest) {
@@ -144,7 +144,7 @@ export class CommandManager<T extends CommandConfig = CommandConfig> {
             }
 
             if (hadCatchAll) {
-                throw new Error(`CatchAll parameter must come last`);
+                throw new Error(`Catch-all parameter must come last`);
             }
 
             if (param.catchAll) {
@@ -153,10 +153,13 @@ export class CommandManager<T extends CommandConfig = CommandConfig> {
         });
 
         // Actually add the command to the manager
-        const definition: CommandDefinition<T> = {
-            triggerRegex,
+        const definition: CommandDefinition<TCustomProps> = {
+            prefix,
+            triggers: regexTriggers,
             parameters,
-            config,
+            options: config && config.options || [],
+            filters: config && config.filters || [],
+            customProps,
         };
 
         this.commands.push(definition);
@@ -171,45 +174,35 @@ export class CommandManager<T extends CommandConfig = CommandConfig> {
      * Find the first matching command in the given string, if any.
      * This function returns a promise to support async types and filter functions.
      */
-    public async findMatchingCommand(str: string): Promise<MatchedCommand|CommandMatchError|null> {
+    public async findMatchingCommand(str: string): Promise<MatchedCommand<TCustomProps>|{ error: string }|null> {
         let onlyErrors = true;
-        let lastError: CommandMatchError | null = null;
+        let lastError: string | null = null;
 
         for (const command of this.commands) {
-            let matchedCommand: MatchedCommand|null;
-            try {
-                matchedCommand = await this.tryMatchingCommand(command, str);
-                onlyErrors = false;
-            } catch (e) {
-                if (e instanceof CommandMatchError) {
-                    lastError = e;
-                    continue;
-                }
+            const matchResult = await this.tryMatchingCommand(command, str);
+            if (matchResult === null) continue;
 
-                if (! (e instanceof CommandMatchError)) {
-                    throw e;
-                }
-
-                lastError = e;
+            if (matchResult.error !== undefined) {
+                lastError = matchResult.error;
                 continue;
             }
 
-            if (matchedCommand === null) continue;
+            onlyErrors = false;
 
-            if (matchedCommand.config && matchedCommand.config.filters) {
+            if (matchResult.command.filters.length) {
                 let passed = false;
-                for (const filter of matchedCommand.config.filters) {
-                    passed = await filter(matchedCommand);
+                for (const filter of matchResult.command.filters) {
+                    passed = await filter(matchResult.command);
                     if (! passed) break;
                 }
                 if (! passed) continue;
             }
 
-            return matchedCommand;
+            return matchResult.command;
         }
 
         if (onlyErrors && lastError !== null) {
-            return lastError;
+            return { error: lastError };
         }
 
         return null;
@@ -246,161 +239,154 @@ export class CommandManager<T extends CommandConfig = CommandConfig> {
         );
     }
 
-    protected async tryMatchingCommand(command: CommandDefinition<T>, str: string): Promise<MatchedCommand|null> {
-        const prefixMatch = str.match(this.prefixRegex);
-        if (! prefixMatch) return null;
-        str = str.slice(prefixMatch[0].length);
+    /**
+     * Attempts to match the given command to a string.
+     */
+    protected async tryMatchingCommand(command: CommandDefinition<TCustomProps>, str: string): Promise<CommandMatchResult<TCustomProps>|null> {
+        if (command.prefix) {
+            const prefixMatch = str.match(command.prefix);
+            if (!prefixMatch) return null;
+            str = str.slice(prefixMatch[0].length);
+        }
 
-        const triggerMatch = str.match(command.triggerRegex);
-        if (! triggerMatch) return null;
-        str = str.slice(triggerMatch[0].length);
+        let matchedTrigger = false;
+        for (const trigger of command.triggers) {
+            const triggerMatch = str.match(trigger);
+            if (triggerMatch) {
+                matchedTrigger = true;
+                str = str.slice(triggerMatch[0].length);
+            }
+        }
+        if (!matchedTrigger) return null;
 
-        const argStr = str;
-        const parsedArguments = parseArguments(argStr);
+        const parsedArguments = parseArguments(str);
         const args: ArgumentMap = {};
         const opts: MatchedOptionMap = {};
 
-        // Match command options (--option value / -o value / --option=value / -o=value)
-        if (command.config && command.config.options) {
-            const temp = Array.from(parsedArguments);
-            for (let i = 0; i < temp.length; i++) {
-                const arg = temp[i];
+        let paramIndex = 0;
+        for (let i = 0; i < parsedArguments.length; i++) {
+            const arg = parsedArguments[i];
 
-                // Full option name with --name value / --name=value
-                const optMatch = arg.value.match(optMatchRegex);
-                if (optMatch) {
-                    const optName = optMatch[1];
+            // Check if the argument is an --option
+            // Both --option=value and --option value syntaxes are supported;
+            // in the latter case we consume the next argument as the value
+            const fullOptMatch = arg.value.match(optMatchRegex);
+            if (fullOptMatch) {
+                const optName = fullOptMatch[1];
 
-                    const opt = command.config.options.find(o => o.name === optName);
-                    if (!opt) {
-                        throw new CommandMatchError(`Unknown option: --${optName}`, command);
-                    }
-
-                    let optValue: string|boolean = optMatch[2];
-
-                    if ((opt as FlagOption).flag) {
-                        if (optValue) {
-                            throw new CommandMatchError(`Flags can't have values: --${optName}`, command);
-                        }
-                        optValue = true;
-                    } else if (optValue == null) {
-                        // If we're not a flag, and we don't have a =value, consume the next argument as the value instead
-                        const nextArg = temp[i + 1];
-                        if (! nextArg) {
-                            throw new CommandMatchError(`No value for option: --${optName}`, command);
-                        }
-
-                        optValue = nextArg.value;
-
-                        // Skip next arg in opt parsing (since we just consumed it)
-                        i++;
-
-                        // Don't consider the next arg i.e. the now-option-value as an argument anymore
-                        parsedArguments.splice(parsedArguments.indexOf(nextArg), 1);
-                    }
-
-                    opts[opt.name] = {
-                        option: opt,
-                        value: optValue
-                    };
-
-                    const indexToDelete = parsedArguments.indexOf(arg);
-                    if (indexToDelete !== -1) parsedArguments.splice(indexToDelete, 1);
+                const opt = command.options.find(o => o.name === optName);
+                if (!opt) {
+                    return { error: `Unknown option: --${optName}` };
                 }
 
-                // Option shortcut with -n value / -n=value
-                // Also supports multiple shortcuts (for flags): -abc
-                // Or flags + 1 option: -abc value / -abc=value (a and b are flags, c is an option)
-                const optShortcutsMatch = arg.value.match(optShortcutMatchRegex);
-                if (optShortcutsMatch) {
-                    const shortcuts = [...optShortcutsMatch[1]];
-                    const lastValue = optShortcutsMatch[2];
-                    const optShortcuts = command.config.options.reduce((map, opt) => {
-                        if (opt.shortcut) map[opt.shortcut] = opt;
-                        return map;
-                    }, {});
-                    const matchingOpts = shortcuts.map(s => optShortcuts[s]);
+                let optValue: string|boolean = fullOptMatch[2];
 
-                    const unknownOptShortcutIndex = matchingOpts.findIndex(o => o == null);
-                    if (unknownOptShortcutIndex !== -1) {
-                        throw new CommandMatchError(`Unknown option shortcut: -${shortcuts[unknownOptShortcutIndex]}`, command);
+                if ((opt as FlagOption).flag) {
+                    if (optValue) {
+                        return { error: `Flags can't have values: --${optName}` };
+                    }
+                    optValue = true;
+                } else if (optValue == null) {
+                    // If we're not a flag, and we don't have a =value, consume the next argument as the value instead
+                    const nextArg = parsedArguments[i + 1];
+                    if (! nextArg) {
+                        return { error: `No value for option: --${optName}` };
                     }
 
-                    for (let j = 0; j < matchingOpts.length; j++) {
-                        const opt = matchingOpts[j];
-                        const isLast = (j === matchingOpts.length - 1);
-                        if (isLast) {
-                            if ((opt as FlagOption).flag) {
-                                if (lastValue) {
-                                    throw new CommandMatchError(`Flags can't have values: -${opt.shortcut}`, command);
-                                }
+                    optValue = nextArg.value;
 
-                                opts[opt.name] = {
-                                    option: opt,
-                                    value: true
-                                };
-                            } else {
-                                // If we're not a flag, and we don't have a =value, consume the next argument as the value instead
-                                const nextArg = temp[i + 1];
-                                if (! nextArg) {
-                                    throw new CommandMatchError(`No value for option: -${opt.shortcut}`, command);
-                                }
+                    // Skip the next arg in the loop since we just consumed it
+                    i++;
+                }
 
-                                opts[opt.name] = {
-                                    option: opt,
-                                    value: nextArg.value
-                                };
+                opts[opt.name] = {
+                    option: opt,
+                    value: optValue
+                };
 
-                                // Skip next arg in opt parsing (since we just consumed it)
-                                i++;
+                continue;
+            }
 
-                                // Don't consider the next arg i.e. the now-option-value as an argument anymore
-                                const indexToDelete = parsedArguments.indexOf(nextArg);
-                                if (indexToDelete !== -1) parsedArguments.splice(indexToDelete, 1);
-                            }
-                        } else {
-                            if (! (opt as FlagOption).flag) {
-                                throw new CommandMatchError(`No value for option: -${opt.shortcut}`, command);
+            // Check if the argument is a string of option shortcuts, i.e. -abcd
+            // The last option can have a value with either -abcd=value or -abcd value;
+            // in the latter case we consume the next argument as the value
+            const optShortcutMatch = arg.value.match(optShortcutMatchRegex);
+            if (optShortcutMatch) {
+                const shortcuts = [...optShortcutMatch[1]];
+                const lastValue = optShortcutMatch[2];
+                const optShortcuts = command.options.reduce((map, opt) => {
+                    if (opt.shortcut) map[opt.shortcut] = opt;
+                    return map;
+                }, {});
+                const matchingOpts = shortcuts.map(s => optShortcuts[s]);
+
+                const unknownOptShortcutIndex = matchingOpts.findIndex(o => o == null);
+                if (unknownOptShortcutIndex !== -1) {
+                    return { error: `Unknown option shortcut: -${shortcuts[unknownOptShortcutIndex]}` };
+                }
+
+                for (let j = 0; j < matchingOpts.length; j++) {
+                    const opt = matchingOpts[j];
+                    const isLast = (j === matchingOpts.length - 1);
+                    if (isLast) {
+                        if ((opt as FlagOption).flag) {
+                            if (lastValue) {
+                                return { error: `Flags can't have values: -${opt.shortcut}` };
                             }
 
                             opts[opt.name] = {
                                 option: opt,
                                 value: true
                             };
+                        } else {
+                            if (lastValue) {
+                                opts[opt.name] = {
+                                    option: opt,
+                                    value: lastValue
+                                };
+
+                                continue;
+                            }
+
+                            // If we're not a flag, and we don't have a =value, consume the next argument as the value instead
+                            const nextArg = parsedArguments[i + 1];
+                            if (! nextArg) {
+                                return { error: `No value for option: -${opt.shortcut}` };
+                            }
+
+                            opts[opt.name] = {
+                                option: opt,
+                                value: nextArg.value
+                            };
+
+                            // Skip the next arg in the loop since we just consumed it
+                            i++;
+                        }
+                    } else {
+                        if (! (opt as FlagOption).flag) {
+                            return { error: `No value for option: -${opt.shortcut}` };
                         }
 
+                        opts[opt.name] = {
+                            option: opt,
+                            value: true
+                        };
                     }
-
-                    const indexToDelete = parsedArguments.indexOf(arg);
-                    if (indexToDelete !== -1) parsedArguments.splice(indexToDelete, 1);
                 }
+
+                continue;
             }
 
-            // Check for required options
-            for (const opt of command.config.options) {
-                if ((opt as OptionWithValue).required && opts[opt.name] == null) {
-                    throw new CommandMatchError(`Missing required option: --${opt.name}`, command);
-                    break;
-                }
+            // Argument wasn't an option, so match it to a parameter instead
+            const param = command.parameters[paramIndex];
+            if (!param) {
+                return { error: `Too many arguments` };
             }
-        }
-
-        const hasRestOrCatchAll = command.parameters.some(p => Boolean(p.rest) || Boolean(p.catchAll));
-        if (!hasRestOrCatchAll && parsedArguments.length > command.parameters.length) {
-            throw new CommandMatchError(
-                `Too many arguments (found ${parsedArguments.length}, expected ${command.parameters.length})`,
-                command
-            );
-        }
-
-        for (const [i, param] of command.parameters.entries()) {
-            const parsedArg = parsedArguments[i];
-            let value;
 
             if (param.rest) {
                 const restArgs = parsedArguments.slice(i);
                 if (param.required && restArgs.length === 0) {
-                    throw new CommandMatchError(`Missing argument: ${param.name}`, command);
+                    return { error: `Missing required argument: ${param.name}` };
                 }
 
                 args[param.name] = {
@@ -409,57 +395,75 @@ export class CommandManager<T extends CommandConfig = CommandConfig> {
                 };
 
                 break;
-            } else if (parsedArg == null || parsedArg.value === "") {
-                if (param.required) {
-                    throw new CommandMatchError(`Missing argument: ${param.name}`, command);
-                } else {
-                    value = param.def;
-                }
-            } else {
-                value = parsedArg.value;
             }
 
-            if (param.catchAll && parsedArg) {
-                value = [...argStr].slice(parsedArg.index).join("");
+            if (param.catchAll) {
+                args[param.name] = {
+                    parameter: param,
+                    value: str.slice(arg.index)
+                };
+
+                break;
             }
 
             args[param.name] = {
                 parameter: param,
-                value
+                value: arg.value
             };
+
+            paramIndex++;
         }
 
-        // Convert argument types
-        for (const [key, arg] of Object.entries(args)) {
-            try {
-                arg.value = this.convertToArgumentType(arg.value, arg.parameter.type);
-            } catch (e) {
-                if (e instanceof TypeConversionError) {
-                    throw new CommandMatchError(`Could not convert argument ${arg.parameter.name} to ${arg.parameter.type}`, command);
-                }
-
-                throw e;
+        // Verify we have all required options and arguments and add default values
+        for (const opt of command.options) {
+            if (args[opt.name] != null) continue;
+            if (opt.flag) continue;
+            if (opt.required) {
+                return { error: `Missing required option: ${opt.name}` };
+            }
+            if (opt.def) {
+                opts[opt.name] = {
+                    option: opt,
+                    value: opt.def,
+                    usesDefaultValue: true,
+                };
+            }
+        }
+        for (const param of command.parameters) {
+            if (args[param.name] != null) continue;
+            if (param.required) {
+                return { error: `Missing required argument: ${param.name}` };
+            }
+            if (param.def) {
+                args[param.name] = {
+                    parameter: param,
+                    value: param.def,
+                    usesDefaultValue: true,
+                };
             }
         }
 
-        // Convert option types
-        for (const [key, opt] of Object.entries(opts)) {
-            if ((opt.option as FlagOption)) continue;
-            try {
-                opt.value = this.convertToArgumentType(opt.value, (opt.option as OptionWithValue).type);
-            } catch (e) {
-                if (e instanceof TypeConversionError) {
-                    throw new CommandMatchError(`Could not convert option ${opt.option.name} to ${(opt.option as OptionWithValue).type}`, command);
-                }
-
-                throw e;
+        // Convert types
+        for (const arg of Object.values(args)) {
+            if (arg.usesDefaultValue) continue;
+            if (arg.parameter.rest) {
+                arg.value = arg.value.map(v => this.convertToArgumentType(v, arg.parameter.type || this.defaultType));
+            } else {
+                arg.value = this.convertToArgumentType(arg.value, arg.parameter.type || this.defaultType);
             }
+        }
+        for (const opt of Object.values(opts)) {
+            if (opt.option.flag) continue;
+            if (opt.usesDefaultValue) continue;
+            opt.value = this.convertToArgumentType(opt.value, opt.option.type || this.defaultType);
         }
 
         return {
-            ...command,
-            args,
-            opts,
+            command: {
+                ...command,
+                args,
+                opts,
+            }
         };
     }
 
