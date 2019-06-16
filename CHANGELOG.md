@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.1.1
+* Fix prefixes and triggers matching anywhere in the string
+
 ## 3.1.0
 * Export `TypeConversionError`
 
