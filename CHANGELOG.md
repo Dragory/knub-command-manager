@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.2
+* Triggers now only match if they're followed by whitespace or the end of the string.
+This fixes short triggers, e.g. `s`, matching the beginning of longer triggers, e.g. `suspend`.
+
 ## 3.1.1
 * Fix prefixes and triggers matching anywhere in the string
 
