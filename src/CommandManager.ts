@@ -104,10 +104,10 @@ export class CommandManager<TFilterContext = null> {
 
     const regexTriggers = triggers.map(trigger => {
       if (typeof trigger === "string") {
-        return new RegExp(`^${escapeStringRegex(trigger)}`, "i");
+        return new RegExp(`^${escapeStringRegex(trigger)}(?=\\s|$)`, "i");
       }
 
-      return new RegExp(`^${trigger.source}`, trigger.flags);
+      return new RegExp(`^${trigger.source}(?=\\s|$)`, trigger.flags);
     });
 
     // If parameters are provided in string format, parse it

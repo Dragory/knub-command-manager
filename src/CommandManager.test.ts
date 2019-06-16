@@ -298,7 +298,7 @@ describe("CommandManager", () => {
     it("Pre-filters", async () => {
       const manager = new CommandManager({ prefix: "!" });
 
-      const filter = command => command.triggers[0].source !== "^foo";
+      const filter = command => command.triggers[0].source.indexOf("foo") === -1;
 
       // This should never match
       manager.add("foo", [], {
@@ -437,6 +437,18 @@ describe("CommandManager", () => {
       if (matched1 !== null) return assert.fail();
 
       const matched2 = await manager.findMatchingCommand("!foor");
+      if (matched2 !== null) return assert.fail();
+    });
+
+    it("Should only match triggers followed by whitespace or end of string", async () => {
+      const manager = new CommandManager({ prefix: "!" });
+      manager.add("s", "<arg>");
+      manager.add("suspend");
+
+      const matched1 = await manager.findMatchingCommand("!suspend");
+      if (matched1 === null || matched1.error !== undefined) return assert.fail();
+
+      const matched2 = await manager.findMatchingCommand("!suspendo");
       if (matched2 !== null) return assert.fail();
     });
   });
