@@ -8,7 +8,7 @@ export const defaultParameterTypes: { [key: string]: TypeConverterFn } = {
 
   number(value): number {
     if (isNaN(value)) throw new TypeConversionError(`Value is not a number`);
-    return Number(value);
+    return parseFloat(value);
   },
 
   bool(value): boolean {

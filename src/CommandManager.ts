@@ -42,12 +42,14 @@ const defaultParameter: Partial<Parameter> = {
   catchAll: false
 };
 
-export class CommandManager<TCustomProps = {}> {
-  protected commands: CommandDefinition<TCustomProps>[] = [];
+export class CommandManager<TFilterContext = null> {
+  protected commands: CommandDefinition<TFilterContext>[] = [];
 
   protected defaultPrefix: RegExp | null = null;
   protected types: { [key: string]: TypeConverterFn };
   protected defaultType: string;
+
+  protected commandId = 0;
 
   constructor(opts: CommandManagerOptions) {
     if (opts.prefix != null) {
@@ -82,9 +84,8 @@ export class CommandManager<TCustomProps = {}> {
   public add(
     trigger: string | RegExp,
     parameters: string | Parameter[] = [],
-    config: CommandConfig<TCustomProps> = {},
-    customProps?: TCustomProps
-  ): () => void {
+    config: CommandConfig<TFilterContext> = {}
+  ): CommandDefinition<TFilterContext> {
     // If we're overriding the default prefix, convert the new prefix to a regex (or keep it as null for no prefix)
     let prefix = this.defaultPrefix;
     if (config.prefix !== undefined) {
@@ -156,37 +157,48 @@ export class CommandManager<TCustomProps = {}> {
     });
 
     // Actually add the command to the manager
-    const definition: CommandDefinition<TCustomProps> = {
+    const id = ++this.commandId;
+    const definition: CommandDefinition<TFilterContext> = {
+      id,
       prefix,
       triggers: regexTriggers,
       parameters,
       options: (config && config.options) || [],
       preFilters: (config && config.preFilters) || [],
-      postFilters: (config && config.postFilters) || [],
-      customProps
+      postFilters: (config && config.postFilters) || []
     };
 
     this.commands.push(definition);
 
     // Return a function to remove the command
-    return () => {
-      this.commands.splice(this.commands.indexOf(definition), 1);
-    };
+    return definition;
+  }
+
+  public remove(defOrId: CommandDefinition<TFilterContext> | number) {
+    const indexToRemove =
+      typeof defOrId === "number" ? this.commands.findIndex(cmd => cmd.id === defOrId) : this.commands.indexOf(defOrId);
+
+    if (indexToRemove !== -1) this.commands.splice(indexToRemove, 1);
   }
 
   /**
    * Find the first matching command in the given string, if any.
    * This function returns a promise to support async types and filter functions.
    */
-  public async findMatchingCommand(str: string): Promise<MatchedCommand<TCustomProps> | { error: string } | null> {
+  public async findMatchingCommand(
+    str: string,
+    ...context: TFilterContext extends null ? [null?] : [TFilterContext]
+  ): Promise<MatchedCommand<TFilterContext> | { error: string } | null> {
     let onlyErrors = true;
     let lastError: string | null = null;
+
+    const filterContext = context[0];
 
     for (const command of this.commands) {
       if (command.preFilters.length) {
         let passed = false;
         for (const filter of command.preFilters) {
-          passed = await filter(command);
+          passed = await filter(command, filterContext as TFilterContext);
           if (!passed) break;
         }
         if (!passed) continue;
@@ -205,7 +217,7 @@ export class CommandManager<TCustomProps = {}> {
       if (command.postFilters.length) {
         let passed = false;
         for (const filter of command.postFilters) {
-          passed = await filter(matchResult.command);
+          passed = await filter(matchResult.command, filterContext as TFilterContext);
           if (!passed) break;
         }
         if (!passed) continue;
@@ -256,9 +268,9 @@ export class CommandManager<TCustomProps = {}> {
    * Attempts to match the given command to a string.
    */
   protected async tryMatchingCommand(
-    command: CommandDefinition<TCustomProps>,
+    command: CommandDefinition<TFilterContext>,
     str: string
-  ): Promise<CommandMatchResult<TCustomProps> | null> {
+  ): Promise<CommandMatchResult<TFilterContext> | null> {
     if (command.prefix) {
       const prefixMatch = str.match(command.prefix);
       if (!prefixMatch) return null;
@@ -464,16 +476,33 @@ export class CommandManager<TCustomProps = {}> {
     // Convert types
     for (const arg of Object.values(args)) {
       if (arg.usesDefaultValue) continue;
-      if (arg.parameter.rest) {
-        arg.value = arg.value.map(v => this.convertToArgumentType(v, arg.parameter.type || this.defaultType));
-      } else {
-        arg.value = this.convertToArgumentType(arg.value, arg.parameter.type || this.defaultType);
+      try {
+        if (arg.parameter.rest) {
+          arg.value = arg.value.map(v => this.convertToArgumentType(v, arg.parameter.type || this.defaultType));
+        } else {
+          arg.value = this.convertToArgumentType(arg.value, arg.parameter.type || this.defaultType);
+        }
+      } catch (e) {
+        if (e instanceof TypeConversionError) {
+          return { error: `Could not convert argument ${arg.parameter.name} to type ${arg.parameter.type}` };
+        }
+
+        throw e;
       }
     }
+
     for (const opt of Object.values(opts)) {
       if (opt.option.flag) continue;
       if (opt.usesDefaultValue) continue;
-      opt.value = this.convertToArgumentType(opt.value, opt.option.type || this.defaultType);
+      try {
+        opt.value = this.convertToArgumentType(opt.value, opt.option.type || this.defaultType);
+      } catch (e) {
+        if (e instanceof TypeConversionError) {
+          return { error: `Could not convert option ${opt.option.name} to type ${opt.option.type}` };
+        }
+
+        throw e;
+      }
     }
 
     return {

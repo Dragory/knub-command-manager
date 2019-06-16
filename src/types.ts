@@ -42,33 +42,39 @@ export interface MatchedOptionMap {
 }
 
 // Commands
-export type PreFilterFn<TCustomProps> = (command: CommandDefinition<TCustomProps>) => boolean | Promise<boolean>;
-export type PostFilterFn<TCustomProps> = (command: MatchedCommand<TCustomProps>) => boolean | Promise<boolean>;
+export type PreFilterFn<TContext> = (
+  command: CommandDefinition<TContext>,
+  context: TContext
+) => boolean | Promise<boolean>;
+export type PostFilterFn<TContext> = (
+  command: MatchedCommand<TContext>,
+  context: TContext
+) => boolean | Promise<boolean>;
 
-export interface CommandConfig<TCustomProps> {
+export interface CommandConfig<TContext> {
   prefix?: string | RegExp;
   options?: CommandOption[];
   aliases?: string[];
-  preFilters?: PreFilterFn<TCustomProps>[];
-  postFilters?: PostFilterFn<TCustomProps>[];
+  preFilters?: PreFilterFn<TContext>[];
+  postFilters?: PostFilterFn<TContext>[];
 }
 
-export interface CommandDefinition<TCustomProps> {
+export interface CommandDefinition<TContext> {
+  id: number;
   prefix: RegExp | null;
   triggers: RegExp[];
   parameters: Parameter[];
   options: CommandOption[];
-  preFilters: PreFilterFn<TCustomProps>[];
-  postFilters: PostFilterFn<TCustomProps>[];
-  customProps?: TCustomProps;
+  preFilters: PreFilterFn<TContext>[];
+  postFilters: PostFilterFn<TContext>[];
 }
 
 // https://github.com/Microsoft/TypeScript/issues/12815
-export type CommandMatchResultSuccess<TCustomProps> = { command: MatchedCommand<TCustomProps>; error?: undefined };
+export type CommandMatchResultSuccess<TContext> = { command: MatchedCommand<TContext>; error?: undefined };
 export type CommandMatchResultError = { error: string; command?: undefined };
-export type CommandMatchResult<TCustomProps> = CommandMatchResultSuccess<TCustomProps> | CommandMatchResultError;
+export type CommandMatchResult<TContext> = CommandMatchResultSuccess<TContext> | CommandMatchResultError;
 
-export interface MatchedCommand<TCustomProps> extends CommandDefinition<TCustomProps> {
+export interface MatchedCommand<TContext> extends CommandDefinition<TContext> {
   args: ArgumentMap;
   opts: MatchedOptionMap;
   error?: undefined;

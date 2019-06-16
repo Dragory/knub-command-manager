@@ -382,23 +382,51 @@ describe("CommandManager", () => {
       if (matched4 !== null) return assert.fail();
     });
 
-    it("Custom props", async () => {
-      type CustomProps = { handler: () => boolean };
-      const manager = new CommandManager<CustomProps>({ prefix: "!" });
+    it("Filter context", async () => {
+      type FilterContext = { foo: string };
+      const manager = new CommandManager<FilterContext>({ prefix: "!" });
 
-      manager.add(
-        "foo",
-        [],
-        {},
-        {
-          handler: () => true
-        }
-      );
+      manager.add("foo", [], {
+        preFilters: [(cmd, context) => context.foo === "one"]
+      });
 
-      const matched1 = await manager.findMatchingCommand("!foo");
+      // This should pass
+      const matched1 = await manager.findMatchingCommand("!foo", { foo: "one" });
+      if (matched1 === null || matched1.error !== undefined) assert.fail();
+
+      // This should not pass
+      const matched2 = await manager.findMatchingCommand("!foo", { foo: "two" });
+      if (matched2 !== null) assert.fail();
+    });
+
+    it("Should pick the first fitting signature", async () => {
+      const manager = new CommandManager({ prefix: "!" });
+      const cmd1 = manager.add("foo", "<arg1:string> <arg2:number>");
+      const cmd2 = manager.add("foo", "<arg1:number> <arg2:string>");
+      const cmd3 = manager.add("foo", "<arg1:string> <arg2:string>");
+
+      const matched1 = await manager.findMatchingCommand("!foo val 5");
       if (matched1 === null || matched1.error !== undefined) return assert.fail();
-      if (matched1.customProps === undefined) return assert.fail();
-      expect(matched1.customProps.handler()).to.equal(true);
+      expect(matched1.id).to.equal(cmd1.id);
+
+      const matched2 = await manager.findMatchingCommand("!foo 5 val2");
+      if (matched2 === null || matched2.error !== undefined) return assert.fail();
+      expect(matched2.id).to.equal(cmd2.id);
+
+      const matched3 = await manager.findMatchingCommand("!foo val1 val2");
+      if (matched3 === null || matched3.error !== undefined) return assert.fail();
+      expect(matched3.id).to.equal(cmd3.id);
+    });
+
+    it("Should increment command IDs", async () => {
+      const manager = new CommandManager({ prefix: "!" });
+      const cmd1 = manager.add("foo", "<arg1:string> <arg2:number>");
+      const cmd2 = manager.add("foo", "<arg1:number> <arg2:string>");
+      const cmd3 = manager.add("foo", "<arg1:string> <arg2:string>");
+
+      expect(cmd1.id).to.equal(1);
+      expect(cmd2.id).to.equal(2);
+      expect(cmd3.id).to.equal(3);
     });
   });
 });
