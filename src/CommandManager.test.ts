@@ -153,6 +153,17 @@ describe("CommandManager", () => {
       expect(matched.args.arg2.value).to.equal("val2");
     });
 
+    it("Quoted arguments", async () => {
+      const manager = new CommandManager({ prefix: "!" });
+      manager.add("foo", "<arg1> <arg2> <arg3>");
+
+      const matched = await manager.findMatchingCommand("!foo val1 \"val2 val3\" 'val4 val5'");
+      if (matched === null || matched.error !== undefined) return assert.fail();
+      expect(matched.args.arg1.value).to.equal("val1");
+      expect(matched.args.arg2.value).to.equal("val2 val3");
+      expect(matched.args.arg3.value).to.equal("val4 val5");
+    });
+
     it("Deny too many arguments", async () => {
       const manager = new CommandManager({ prefix: "!" });
       manager.add("foo", "<arg1> ");
@@ -167,6 +178,64 @@ describe("CommandManager", () => {
 
       const matched = await manager.findMatchingCommand("!foo --opt=val");
       if (matched === null || !matched.error) return assert.fail();
+    });
+
+    it("Ignore options within catch-all/rest", async () => {
+      const manager = new CommandManager({ prefix: "!" });
+      manager.add("foo", "<arg$>");
+      manager.add("bar", "<arg...>");
+
+      const matched1 = await manager.findMatchingCommand("!foo blah blah --unknown=val blah");
+      if (matched1 === null || matched1.error) return assert.fail();
+
+      const matched2 = await manager.findMatchingCommand("!bar blah blah --unknown=val blah");
+      if (matched2 === null || matched2.error) return assert.fail();
+    });
+
+    it("Match option at the start of a catch-all/rest", async () => {
+      const manager = new CommandManager({ prefix: "!" });
+      manager.add("foo", "<arg$>", {
+        options: [{ name: "opt" }]
+      });
+      manager.add("bar", "<arg...>", {
+        options: [{ name: "opt" }]
+      });
+
+      const matched1 = await manager.findMatchingCommand("!foo --opt=val blah blah");
+      if (matched1 === null || matched1.error !== undefined) return assert.fail();
+      expect(matched1.args.arg.value).to.equal("blah blah");
+      expect(matched1.opts.opt.value).to.equal("val");
+
+      const matched2 = await manager.findMatchingCommand("!bar --opt=val blah blah");
+      if (matched2 === null || matched2.error !== undefined) return assert.fail();
+      expect(matched2.args.arg.value).to.eql(["blah", "blah"]);
+      expect(matched2.opts.opt.value).to.equal("val");
+    });
+
+    it("Don't match options in quotes", async () => {
+      const manager = new CommandManager({ prefix: "!" });
+      manager.add("foo", "[arg]", {
+        options: [{ name: "opt" }]
+      });
+
+      const matched1 = await manager.findMatchingCommand("!foo --opt=val");
+      if (matched1 === null || matched1.error !== undefined) return assert.fail();
+      expect(matched1.args.arg).to.equal(undefined);
+      expect(matched1.opts.opt.value).to.equal("val");
+
+      const matched2 = await manager.findMatchingCommand("!foo '--opt=val'");
+      if (matched2 === null || matched2.error !== undefined) return assert.fail();
+      expect(matched2.args.arg.value).to.equal("--opt=val");
+      expect(matched2.opts.opt).to.equal(undefined);
+    });
+
+    it("Supports ending parameter parsing with -- and treating everything afterwards as if it was quoted", async () => {
+      const manager = new CommandManager({ prefix: "!" });
+      manager.add("foo", "<arg>");
+
+      const matched1 = await manager.findMatchingCommand("!foo -- this will be in arg");
+      if (matched1 === null || matched1.error !== undefined) return assert.fail();
+      expect(matched1.args.arg.value).to.equal("this will be in arg");
     });
   });
 

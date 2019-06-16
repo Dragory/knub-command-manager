@@ -1,7 +1,7 @@
 const whitespace = /\s/;
 
-export function parseArguments(str: string): Array<{ index: number; value: string }> {
-  const args: Array<{ index: number; value: string }> = [];
+export function parseArguments(str: string): Array<{ index: number; value: string; quoted: boolean }> {
+  const args: Array<{ index: number; value: string; quoted: boolean }> = [];
   const chars = [...str]; // Unicode split
 
   let index = 0;
@@ -9,12 +9,12 @@ export function parseArguments(str: string): Array<{ index: number; value: strin
   let escape = false;
   let inQuote: string | null = null;
 
-  const flushCurrent = (newIndex: number) => {
+  const flushCurrent = (newIndex: number, quoted = false) => {
     if (current === "") {
       return;
     }
 
-    args.push({ index, value: current });
+    args.push({ index, value: current, quoted });
     current = "";
     index = newIndex;
   };
@@ -30,7 +30,7 @@ export function parseArguments(str: string): Array<{ index: number; value: strin
       if (inQuote === null) {
         inQuote = char;
       } else if (inQuote === char) {
-        flushCurrent(i + 1);
+        flushCurrent(i + 1, true);
         inQuote = null;
         continue;
       } else {
@@ -38,6 +38,7 @@ export function parseArguments(str: string): Array<{ index: number; value: strin
       }
     } else if (!inQuote && char === "-" && chars.slice(i - 1, 4).join("") === " -- ") {
       current = chars.slice(i + 3).join("");
+      flushCurrent(0, true);
       break;
     } else {
       current += char;

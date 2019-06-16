@@ -283,114 +283,116 @@ export class CommandManager<TCustomProps = {}> {
     for (let i = 0; i < parsedArguments.length; i++) {
       const arg = parsedArguments[i];
 
-      // Check if the argument is an --option
-      // Both --option=value and --option value syntaxes are supported;
-      // in the latter case we consume the next argument as the value
-      const fullOptMatch = arg.value.match(optMatchRegex);
-      if (fullOptMatch) {
-        const optName = fullOptMatch[1];
+      if (!arg.quoted) {
+        // Check if the argument is an --option
+        // Both --option=value and --option value syntaxes are supported;
+        // in the latter case we consume the next argument as the value
+        const fullOptMatch = arg.value.match(optMatchRegex);
+        if (fullOptMatch) {
+          const optName = fullOptMatch[1];
 
-        const opt = command.options.find(o => o.name === optName);
-        if (!opt) {
-          return { error: `Unknown option: --${optName}` };
-        }
-
-        let optValue: string | boolean = fullOptMatch[2];
-
-        if ((opt as FlagOption).flag) {
-          if (optValue) {
-            return { error: `Flags can't have values: --${optName}` };
-          }
-          optValue = true;
-        } else if (optValue == null) {
-          // If we're not a flag, and we don't have a =value, consume the next argument as the value instead
-          const nextArg = parsedArguments[i + 1];
-          if (!nextArg) {
-            return { error: `No value for option: --${optName}` };
+          const opt = command.options.find(o => o.name === optName);
+          if (!opt) {
+            return { error: `Unknown option: --${optName}` };
           }
 
-          optValue = nextArg.value;
+          let optValue: string | boolean = fullOptMatch[2];
 
-          // Skip the next arg in the loop since we just consumed it
-          i++;
+          if ((opt as FlagOption).flag) {
+            if (optValue) {
+              return { error: `Flags can't have values: --${optName}` };
+            }
+            optValue = true;
+          } else if (optValue == null) {
+            // If we're not a flag, and we don't have a =value, consume the next argument as the value instead
+            const nextArg = parsedArguments[i + 1];
+            if (!nextArg) {
+              return { error: `No value for option: --${optName}` };
+            }
+
+            optValue = nextArg.value;
+
+            // Skip the next arg in the loop since we just consumed it
+            i++;
+          }
+
+          opts[opt.name] = {
+            option: opt,
+            value: optValue
+          };
+
+          continue;
         }
 
-        opts[opt.name] = {
-          option: opt,
-          value: optValue
-        };
+        // Check if the argument is a string of option shortcuts, i.e. -abcd
+        // The last option can have a value with either -abcd=value or -abcd value;
+        // in the latter case we consume the next argument as the value
+        const optShortcutMatch = arg.value.match(optShortcutMatchRegex);
+        if (optShortcutMatch) {
+          const shortcuts = [...optShortcutMatch[1]];
+          const lastValue = optShortcutMatch[2];
+          const optShortcuts = command.options.reduce((map, opt) => {
+            if (opt.shortcut) map[opt.shortcut] = opt;
+            return map;
+          }, {});
+          const matchingOpts = shortcuts.map(s => optShortcuts[s]);
 
-        continue;
-      }
+          const unknownOptShortcutIndex = matchingOpts.findIndex(o => o == null);
+          if (unknownOptShortcutIndex !== -1) {
+            return { error: `Unknown option shortcut: -${shortcuts[unknownOptShortcutIndex]}` };
+          }
 
-      // Check if the argument is a string of option shortcuts, i.e. -abcd
-      // The last option can have a value with either -abcd=value or -abcd value;
-      // in the latter case we consume the next argument as the value
-      const optShortcutMatch = arg.value.match(optShortcutMatchRegex);
-      if (optShortcutMatch) {
-        const shortcuts = [...optShortcutMatch[1]];
-        const lastValue = optShortcutMatch[2];
-        const optShortcuts = command.options.reduce((map, opt) => {
-          if (opt.shortcut) map[opt.shortcut] = opt;
-          return map;
-        }, {});
-        const matchingOpts = shortcuts.map(s => optShortcuts[s]);
+          for (let j = 0; j < matchingOpts.length; j++) {
+            const opt = matchingOpts[j];
+            const isLast = j === matchingOpts.length - 1;
+            if (isLast) {
+              if ((opt as FlagOption).flag) {
+                if (lastValue) {
+                  return { error: `Flags can't have values: -${opt.shortcut}` };
+                }
 
-        const unknownOptShortcutIndex = matchingOpts.findIndex(o => o == null);
-        if (unknownOptShortcutIndex !== -1) {
-          return { error: `Unknown option shortcut: -${shortcuts[unknownOptShortcutIndex]}` };
-        }
+                opts[opt.name] = {
+                  option: opt,
+                  value: true
+                };
+              } else {
+                if (lastValue) {
+                  opts[opt.name] = {
+                    option: opt,
+                    value: lastValue
+                  };
 
-        for (let j = 0; j < matchingOpts.length; j++) {
-          const opt = matchingOpts[j];
-          const isLast = j === matchingOpts.length - 1;
-          if (isLast) {
-            if ((opt as FlagOption).flag) {
-              if (lastValue) {
-                return { error: `Flags can't have values: -${opt.shortcut}` };
+                  continue;
+                }
+
+                // If we're not a flag, and we don't have a =value, consume the next argument as the value instead
+                const nextArg = parsedArguments[i + 1];
+                if (!nextArg) {
+                  return { error: `No value for option: -${opt.shortcut}` };
+                }
+
+                opts[opt.name] = {
+                  option: opt,
+                  value: nextArg.value
+                };
+
+                // Skip the next arg in the loop since we just consumed it
+                i++;
+              }
+            } else {
+              if (!(opt as FlagOption).flag) {
+                return { error: `No value for option: -${opt.shortcut}` };
               }
 
               opts[opt.name] = {
                 option: opt,
                 value: true
               };
-            } else {
-              if (lastValue) {
-                opts[opt.name] = {
-                  option: opt,
-                  value: lastValue
-                };
-
-                continue;
-              }
-
-              // If we're not a flag, and we don't have a =value, consume the next argument as the value instead
-              const nextArg = parsedArguments[i + 1];
-              if (!nextArg) {
-                return { error: `No value for option: -${opt.shortcut}` };
-              }
-
-              opts[opt.name] = {
-                option: opt,
-                value: nextArg.value
-              };
-
-              // Skip the next arg in the loop since we just consumed it
-              i++;
             }
-          } else {
-            if (!(opt as FlagOption).flag) {
-              return { error: `No value for option: -${opt.shortcut}` };
-            }
-
-            opts[opt.name] = {
-              option: opt,
-              value: true
-            };
           }
-        }
 
-        continue;
+          continue;
+        }
       }
 
       // Argument wasn't an option, so match it to a parameter instead
