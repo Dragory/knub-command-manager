@@ -1,6 +1,6 @@
 {
   "name": "knub-command-manager",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "An easy-to-use library for defining and matching text-based commands with arguments and options",
   "main": "dist/index.js",
   "scripts": {
