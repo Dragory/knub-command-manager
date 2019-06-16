@@ -10,13 +10,15 @@ export function parseArguments(str: string): Array<{ index: number; value: strin
   let inQuote: string | null = null;
 
   const flushCurrent = (newIndex: number, quoted = false) => {
+    const argIndex = index;
+    index = newIndex;
+
     if (current === "") {
       return;
     }
 
-    args.push({ index, value: current, quoted });
+    args.push({ index: argIndex, value: current, quoted });
     current = "";
-    index = newIndex;
   };
 
   for (const [i, char] of chars.entries()) {

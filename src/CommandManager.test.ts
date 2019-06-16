@@ -237,6 +237,15 @@ describe("CommandManager", () => {
       if (matched1 === null || matched1.error !== undefined) return assert.fail();
       expect(matched1.args.arg.value).to.equal("this will be in arg");
     });
+
+    it("Should not include leading spaces in a first argument catch-all", async () => {
+      const manager = new CommandManager({ prefix: "!" });
+      manager.add("foo", "<arg$>");
+
+      const matched1 = await manager.findMatchingCommand("!foo test");
+      if (matched1 === null || matched1.error !== undefined) return assert.fail();
+      expect(matched1.args.arg.value).to.equal("test");
+    });
   });
 
   describe("Types", () => {
