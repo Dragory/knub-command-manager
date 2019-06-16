@@ -298,7 +298,7 @@ describe("CommandManager", () => {
     it("Pre-filters", async () => {
       const manager = new CommandManager({ prefix: "!" });
 
-      const filter = command => command.triggers[0].source !== "foo";
+      const filter = command => command.triggers[0].source !== "^foo";
 
       // This should never match
       manager.add("foo", [], {
@@ -427,6 +427,17 @@ describe("CommandManager", () => {
       expect(cmd1.id).to.equal(1);
       expect(cmd2.id).to.equal(2);
       expect(cmd3.id).to.equal(3);
+    });
+
+    it("Should only match prefixes and triggers at the start", async () => {
+      const manager = new CommandManager({ prefix: "!" });
+      manager.add("r");
+
+      const matched1 = await manager.findMatchingCommand("a!foo");
+      if (matched1 !== null) return assert.fail();
+
+      const matched2 = await manager.findMatchingCommand("!foor");
+      if (matched2 !== null) return assert.fail();
     });
   });
 });

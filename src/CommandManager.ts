@@ -92,9 +92,9 @@ export class CommandManager<TFilterContext = null> {
       if (config.prefix === null) {
         prefix = null;
       } else if (typeof config.prefix === "string") {
-        prefix = new RegExp(escapeStringRegex(config.prefix), "i");
+        prefix = new RegExp(`^${escapeStringRegex(config.prefix)}`, "i");
       } else {
-        prefix = config.prefix;
+        prefix = new RegExp(`^${config.prefix.source}`, config.prefix.flags);
       }
     }
 
@@ -104,7 +104,7 @@ export class CommandManager<TFilterContext = null> {
 
     const regexTriggers = triggers.map(trigger => {
       if (typeof trigger === "string") {
-        return new RegExp(escapeStringRegex(trigger), "i");
+        return new RegExp(`^${escapeStringRegex(trigger)}`, "i");
       }
 
       return new RegExp(`^${trigger.source}`, trigger.flags);
