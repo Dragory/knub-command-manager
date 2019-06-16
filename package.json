@@ -1,0 +1,35 @@
+{
+  "name": "@mivir/command-manager",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/CommandManager.js",
+  "scripts": {
+    "test": "mocha --exit -r ts-node/register src/**/*.test.ts -- --trace-warnings",
+    "precommit": "lint-staged",
+    "build": "touch dist && rm -r dist && tsc",
+    "prepublishOnly": "npm run build",
+    "watch": "touch dist && rm -r dist && tsc --watch",
+    "format": "prettier --write \"{src,test}/**/*.ts\""
+  },
+  "keywords": [],
+  "author": "Miikka Virtanen <contact@mivir.fi>",
+  "license": "MIT",
+  "dependencies": {
+    "escape-string-regexp": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.1.7",
+    "@types/escape-string-regexp": "^2.0.1",
+    "@types/mocha": "^5.2.7",
+    "@types/node": "^12.0.8",
+    "chai": "^4.2.0",
+    "husky": "^2.4.1",
+    "lint-staged": "^8.2.1",
+    "mocha": "^6.1.4",
+    "prettier": "^1.18.2",
+    "ts-node": "^8.3.0",
+    "tslint": "^5.17.0",
+    "tslint-config-prettier": "^1.18.0",
+    "typescript": "^3.5.2"
+  }
+}
