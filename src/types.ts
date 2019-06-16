@@ -1,74 +1,74 @@
 export interface CommandManagerOptions {
-    prefix?: RegExp | string;
-    types?: { [key: string]: TypeConverterFn };
-    defaultType?: string;
+  prefix?: RegExp | string;
+  types?: { [key: string]: TypeConverterFn };
+  defaultType?: string;
 }
 
 // Parameters
 export interface Parameter {
-    name: string;
-    type: string;
-    required?: boolean;
-    def?: any;
-    rest?: boolean;
-    catchAll?: boolean;
+  name: string;
+  type: string;
+  required?: boolean;
+  def?: any;
+  rest?: boolean;
+  catchAll?: boolean;
 }
 
 // Arguments
 export interface Argument {
-    parameter: Parameter;
-    value: any;
-    usesDefaultValue?: true;
+  parameter: Parameter;
+  value: any;
+  usesDefaultValue?: true;
 }
 
 export interface ArgumentMap {
-    [name: string]: Argument;
+  [name: string]: Argument;
 }
 
 // Options
-export type BaseOption = { name: string, shortcut?: string };
-export type OptionWithValue = BaseOption & { type?: string, required?: boolean, def?: any, flag?: false };
+export type BaseOption = { name: string; shortcut?: string };
+export type OptionWithValue = BaseOption & { type?: string; required?: boolean; def?: any; flag?: false };
 export type FlagOption = BaseOption & { flag: true };
 export type CommandOption = OptionWithValue | FlagOption;
 
 export interface MatchedOption {
-    option: CommandOption;
-    value: any;
-    usesDefaultValue?: true;
+  option: CommandOption;
+  value: any;
+  usesDefaultValue?: true;
 }
 
 export interface MatchedOptionMap {
-    [name: string]: MatchedOption;
+  [name: string]: MatchedOption;
 }
 
 // Commands
 export type FilterFn<TCustomProps> = (command: MatchedCommand<TCustomProps>) => boolean | Promise<boolean>;
 
 export interface CommandConfig<TCustomProps> {
-    prefix?: string | RegExp;
-    options?: CommandOption[];
-    aliases?: string[];
-    filters?: FilterFn<TCustomProps>[];
+  prefix?: string | RegExp;
+  options?: CommandOption[];
+  aliases?: string[];
+  filters?: FilterFn<TCustomProps>[];
 }
 
 export interface CommandDefinition<TCustomProps> {
-    prefix: RegExp | null;
-    triggers: RegExp[];
-    parameters: Parameter[];
-    options: CommandOption[];
-    filters: FilterFn<TCustomProps>[];
-    customProps?: TCustomProps;
+  prefix: RegExp | null;
+  triggers: RegExp[];
+  parameters: Parameter[];
+  options: CommandOption[];
+  filters: FilterFn<TCustomProps>[];
+  customProps?: TCustomProps;
 }
 
 // https://github.com/Microsoft/TypeScript/issues/12815
-export type CommandMatchResultSuccess<TCustomProps> = { command: MatchedCommand<TCustomProps>, error?: undefined };
-export type CommandMatchResultError = { error: string, command?: undefined };
+export type CommandMatchResultSuccess<TCustomProps> = { command: MatchedCommand<TCustomProps>; error?: undefined };
+export type CommandMatchResultError = { error: string; command?: undefined };
 export type CommandMatchResult<TCustomProps> = CommandMatchResultSuccess<TCustomProps> | CommandMatchResultError;
 
 export interface MatchedCommand<TCustomProps> extends CommandDefinition<TCustomProps> {
-    args: ArgumentMap;
-    opts: MatchedOptionMap;
-    error?: undefined;
+  args: ArgumentMap;
+  opts: MatchedOptionMap;
+  error?: undefined;
 }
 
 export type TypeConverterFn = (value: any) => any;
