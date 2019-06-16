@@ -161,7 +161,8 @@ export class CommandManager<TCustomProps = {}> {
       triggers: regexTriggers,
       parameters,
       options: (config && config.options) || [],
-      filters: (config && config.filters) || [],
+      preFilters: (config && config.preFilters) || [],
+      postFilters: (config && config.postFilters) || [],
       customProps
     };
 
@@ -182,6 +183,15 @@ export class CommandManager<TCustomProps = {}> {
     let lastError: string | null = null;
 
     for (const command of this.commands) {
+      if (command.preFilters.length) {
+        let passed = false;
+        for (const filter of command.preFilters) {
+          passed = await filter(command);
+          if (!passed) break;
+        }
+        if (!passed) continue;
+      }
+
       const matchResult = await this.tryMatchingCommand(command, str);
       if (matchResult === null) continue;
 
@@ -192,9 +202,9 @@ export class CommandManager<TCustomProps = {}> {
 
       onlyErrors = false;
 
-      if (matchResult.command.filters.length) {
+      if (command.postFilters.length) {
         let passed = false;
-        for (const filter of matchResult.command.filters) {
+        for (const filter of command.postFilters) {
           passed = await filter(matchResult.command);
           if (!passed) break;
         }

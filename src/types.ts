@@ -42,13 +42,15 @@ export interface MatchedOptionMap {
 }
 
 // Commands
-export type FilterFn<TCustomProps> = (command: MatchedCommand<TCustomProps>) => boolean | Promise<boolean>;
+export type PreFilterFn<TCustomProps> = (command: CommandDefinition<TCustomProps>) => boolean | Promise<boolean>;
+export type PostFilterFn<TCustomProps> = (command: MatchedCommand<TCustomProps>) => boolean | Promise<boolean>;
 
 export interface CommandConfig<TCustomProps> {
   prefix?: string | RegExp;
   options?: CommandOption[];
   aliases?: string[];
-  filters?: FilterFn<TCustomProps>[];
+  preFilters?: PreFilterFn<TCustomProps>[];
+  postFilters?: PostFilterFn<TCustomProps>[];
 }
 
 export interface CommandDefinition<TCustomProps> {
@@ -56,7 +58,8 @@ export interface CommandDefinition<TCustomProps> {
   triggers: RegExp[];
   parameters: Parameter[];
   options: CommandOption[];
-  filters: FilterFn<TCustomProps>[];
+  preFilters: PreFilterFn<TCustomProps>[];
+  postFilters: PostFilterFn<TCustomProps>[];
   customProps?: TCustomProps;
 }
 

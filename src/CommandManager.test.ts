@@ -4,7 +4,7 @@ import { MatchedCommand } from "./types";
 
 describe("CommandManager", () => {
   describe("Parameter validation", () => {
-    it("Deny multiple rest arguments", () => {
+    it("Deny multiple rest parameters", () => {
       const manager = new CommandManager({ prefix: "!" });
 
       try {
@@ -16,7 +16,7 @@ describe("CommandManager", () => {
       assert.fail();
     });
 
-    it("Deny multiple catch-all arguments", () => {
+    it("Deny multiple catch-all parameters", () => {
       const manager = new CommandManager({ prefix: "!" });
 
       try {
@@ -225,6 +225,46 @@ describe("CommandManager", () => {
     });
   });
 
+  describe("Filters", () => {
+    it("Pre-filters", async () => {
+      const manager = new CommandManager({ prefix: "!" });
+
+      const filter = command => command.triggers[0].source !== "foo";
+
+      // This should never match
+      manager.add("foo", [], {
+        preFilters: [filter]
+      });
+
+      // This should match
+      manager.add("bar", [], {
+        preFilters: [filter]
+      });
+
+      const matched1 = await manager.findMatchingCommand("!foo");
+      if (matched1 !== null) return assert.fail();
+
+      const matched2 = await manager.findMatchingCommand("!bar");
+      if (matched2 === null || matched2.error) return assert.fail();
+    });
+
+    it("Post-filters", async () => {
+      const manager = new CommandManager({ prefix: "!" });
+
+      const filter = matchedCommand => matchedCommand.args.arg1.value === "foo";
+
+      manager.add("foo", "<arg1>", {
+        postFilters: [filter]
+      });
+
+      const matched1 = await manager.findMatchingCommand("!foo foo");
+      if (matched1 === null || matched1.error) return assert.fail();
+
+      const matched2 = await manager.findMatchingCommand("!foo bar");
+      if (matched2 !== null) return assert.fail();
+    });
+  });
+
   describe("Misc", () => {
     it("Aliases", async () => {
       const manager = new CommandManager({ prefix: "!" });
@@ -271,6 +311,25 @@ describe("CommandManager", () => {
 
       const matched4 = await manager.findMatchingCommand("foo");
       if (matched4 !== null) return assert.fail();
+    });
+
+    it("Custom props", async () => {
+      type CustomProps = { handler: () => boolean };
+      const manager = new CommandManager<CustomProps>({ prefix: "!" });
+
+      manager.add(
+        "foo",
+        [],
+        {},
+        {
+          handler: () => true
+        }
+      );
+
+      const matched1 = await manager.findMatchingCommand("!foo");
+      if (matched1 === null || matched1.error !== undefined) return assert.fail();
+      if (matched1.customProps === undefined) return assert.fail();
+      expect(matched1.customProps.handler()).to.equal(true);
     });
   });
 });
