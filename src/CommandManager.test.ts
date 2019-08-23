@@ -1,6 +1,6 @@
 import { expect, assert } from "chai";
 import { CommandManager } from "./CommandManager";
-import { MatchedCommand } from "./types";
+import { CommandConfig, MatchedCommand } from "./types";
 
 describe("CommandManager", () => {
   describe("Parameter validation", () => {
@@ -396,7 +396,8 @@ describe("CommandManager", () => {
       const manager = new CommandManager<FilterContext>({ prefix: "!" });
 
       manager.add("foo", [], {
-        preFilters: [(cmd, context) => context.foo === "one"]
+        preFilters: [(cmd, context) => context.foo === "one"],
+        postFilters: [(cmd, context) => context.foo === "one"]
       });
 
       // This should pass
@@ -459,6 +460,27 @@ describe("CommandManager", () => {
 
       const matched2 = await manager.findMatchingCommand("!suspendo");
       if (matched2 !== null) return assert.fail();
+    });
+
+    it("Should pass command config to command definition", async () => {
+      const manager = new CommandManager({ prefix: "!" });
+      const command = manager.add("foo", [], {
+        aliases: ["bar"]
+      });
+      expect(command.config).to.eql({ aliases: ["bar"] });
+    });
+
+    it("Should support extended command configs (type checking test)", async () => {
+      interface ExtendedConfig<TContext> extends CommandConfig<TContext> {
+        foobar: string;
+      }
+
+      const manager = new CommandManager<null, ExtendedConfig<null>>({ prefix: "!" });
+      const command = manager.add("foo", [], {
+        aliases: ["bar"],
+        foobar: "blah"
+      });
+      expect(command.config).to.eql({ aliases: ["bar"], foobar: "blah" });
     });
   });
 });

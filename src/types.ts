@@ -59,7 +59,7 @@ export interface CommandConfig<TContext> {
   postFilters?: PostFilterFn<TContext>[];
 }
 
-export interface CommandDefinition<TContext> {
+export interface CommandDefinition<TContext, TConfig extends CommandConfig<TContext> = CommandConfig<TContext>> {
   id: number;
   prefix: RegExp | null;
   triggers: RegExp[];
@@ -67,6 +67,7 @@ export interface CommandDefinition<TContext> {
   options: CommandOption[];
   preFilters: PreFilterFn<TContext>[];
   postFilters: PostFilterFn<TContext>[];
+  config: TConfig | null;
 }
 
 // https://github.com/Microsoft/TypeScript/issues/12815

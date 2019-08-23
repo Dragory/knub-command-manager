@@ -42,8 +42,11 @@ const defaultParameter: Partial<Parameter> = {
   catchAll: false
 };
 
-export class CommandManager<TFilterContext = null> {
-  protected commands: CommandDefinition<TFilterContext>[] = [];
+export class CommandManager<
+  TFilterContext = null,
+  TConfig extends CommandConfig<TFilterContext> = CommandConfig<TFilterContext>
+> {
+  protected commands: CommandDefinition<TFilterContext, TConfig>[] = [];
 
   protected defaultPrefix: RegExp | null = null;
   protected types: { [key: string]: TypeConverterFn };
@@ -84,11 +87,11 @@ export class CommandManager<TFilterContext = null> {
   public add(
     trigger: string | RegExp,
     parameters: string | Parameter[] = [],
-    config: CommandConfig<TFilterContext> = {}
-  ): CommandDefinition<TFilterContext> {
+    config: TConfig | null = null
+  ): CommandDefinition<TFilterContext, TConfig> {
     // If we're overriding the default prefix, convert the new prefix to a regex (or keep it as null for no prefix)
     let prefix = this.defaultPrefix;
-    if (config.prefix !== undefined) {
+    if (config && config.prefix !== undefined) {
       if (config.prefix === null) {
         prefix = null;
       } else if (typeof config.prefix === "string") {
@@ -158,14 +161,15 @@ export class CommandManager<TFilterContext = null> {
 
     // Actually add the command to the manager
     const id = ++this.commandId;
-    const definition: CommandDefinition<TFilterContext> = {
+    const definition: CommandDefinition<TFilterContext, TConfig> = {
       id,
       prefix,
       triggers: regexTriggers,
       parameters,
       options: (config && config.options) || [],
       preFilters: (config && config.preFilters) || [],
-      postFilters: (config && config.postFilters) || []
+      postFilters: (config && config.postFilters) || [],
+      config: config || null
     };
 
     this.commands.push(definition);
@@ -174,7 +178,7 @@ export class CommandManager<TFilterContext = null> {
     return definition;
   }
 
-  public remove(defOrId: CommandDefinition<TFilterContext> | number) {
+  public remove(defOrId: CommandDefinition<TFilterContext, TConfig> | number) {
     const indexToRemove =
       typeof defOrId === "number" ? this.commands.findIndex(cmd => cmd.id === defOrId) : this.commands.indexOf(defOrId);
 
@@ -268,7 +272,7 @@ export class CommandManager<TFilterContext = null> {
    * Attempts to match the given command to a string.
    */
   protected async tryMatchingCommand(
-    command: CommandDefinition<TFilterContext>,
+    command: CommandDefinition<TFilterContext, TConfig>,
     str: string
   ): Promise<CommandMatchResult<TFilterContext> | null> {
     if (command.prefix) {

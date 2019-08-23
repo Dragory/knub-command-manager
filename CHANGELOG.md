@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.2.0
+* The original command config object is now accessible through the `config` property on the command definition object (returned by `add()`)
+* `CommandManager` now has a second type you can specify: the type of the command config object. This type must extend the original `CommandConfig` type.
+
 ## 3.1.3
 * Fix incorrect parsing of catch-all arguments as first arguments
   * The catch-all argument also included the preceding space
