@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.3.0
+* Move `CommandManager.parseParameterString()` to a standalone function called `parseParameters` and export it
+
 ## 3.2.0
 * The original command config object is now accessible through the `config` property on the command definition object (returned by `add()`)
 * `CommandManager` now has a second type you can specify: the type of the command config object. This type must extend the original `CommandConfig` type.
