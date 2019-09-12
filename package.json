@@ -6,7 +6,6 @@
   "typings": "dist/index.d.ts",
   "scripts": {
     "test": "mocha --exit -r ts-node/register src/**/*.test.ts -- --trace-warnings",
-    "precommit": "lint-staged",
     "build": "touch dist && rm -r dist && tsc",
     "prepublishOnly": "npm run build",
     "watch": "touch dist && rm -r dist && tsc --watch",
