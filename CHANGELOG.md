@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.3.1
+* Include `typings` in package.json
+
 ## 3.3.0
 * Move `CommandManager.parseParameterString()` to a standalone function called `parseParameters` and export it
 
