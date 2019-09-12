@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.3.2
+* Dev dependency updates. New release so the `package.json` on npm and GitHub are the same.
+
 ## 3.3.1
 * Include `typings` in package.json
 
