@@ -1,5 +1,10 @@
 # Changelog
 
+## 4.2.0
+* When `CommandManager.findMatchingCommands()` returns an error (the
+  `{ error: string }` return object), the definition of the last command that
+  triggered an error will now also be returned (as the `command` property)
+
 ## 4.1.0
 * All types from `src/types.ts` are now exported from the main script
 
