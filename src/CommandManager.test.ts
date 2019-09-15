@@ -248,7 +248,7 @@ describe("CommandManager", () => {
     });
   });
 
-  describe("Types", () => {
+  describe("Argument/option types", () => {
     it("Default types", async () => {
       const manager = new CommandManager({ prefix: "!" });
       manager.add("foo", "<arg1:string> <arg2:number>");
@@ -286,6 +286,29 @@ describe("CommandManager", () => {
       expect(Object.keys(matched.args).length).to.equal(2);
       expect(matched.args.arg1.value).to.equal(5);
       expect(matched.args.arg2.value).to.equal("olleh");
+    });
+
+    it("Custom types with context", async () => {
+      const manager = new CommandManager<{ num: number }>({
+        prefix: "!",
+        types: {
+          custom(value, context) {
+            return context.num;
+          }
+        },
+        defaultType: "custom"
+      });
+      manager.add("foo", "<arg1:custom>");
+
+      const matched1 = await manager.findMatchingCommand("!foo thisdoesntmatter", { num: 5 });
+      if (matched1 === null) return assert.fail();
+      if (matched1.error !== undefined) return assert.fail(matched1.error, undefined, `${matched1.error}`);
+      expect(matched1.args.arg1.value).to.equal(5);
+
+      const matched2 = await manager.findMatchingCommand("!foo itjusthastobethere", { num: 20 });
+      if (matched2 === null) return assert.fail();
+      if (matched2.error !== undefined) return assert.fail(matched1.error, undefined, `${matched1.error}`);
+      expect(matched2.args.arg1.value).to.equal(20);
     });
 
     it("Valid default type", () => {
@@ -470,17 +493,23 @@ describe("CommandManager", () => {
       expect(command.config).to.eql({ aliases: ["bar"] });
     });
 
-    it("Should support extended command configs (type checking test)", async () => {
-      interface ExtendedConfig<TContext> extends CommandConfig<TContext> {
+    it("Should support TConfigExtra types", async () => {
+      type Extra = {
         foobar: string;
-      }
+      };
 
-      const manager = new CommandManager<null, ExtendedConfig<null>>({ prefix: "!" });
+      const manager = new CommandManager<null, Extra>({ prefix: "!" });
       const command = manager.add("foo", [], {
-        aliases: ["bar"],
-        foobar: "blah"
+        extra: {
+          foobar: "blah"
+        }
       });
-      expect(command.config).to.eql({ aliases: ["bar"], foobar: "blah" });
+
+      if (command.config) {
+        expect(command.config.extra).to.eql({ foobar: "blah" });
+      } else {
+        assert.fail();
+      }
     });
   });
 });

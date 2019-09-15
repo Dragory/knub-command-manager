@@ -1,7 +1,7 @@
 import { TypeConverterFn } from "./types";
 import { TypeConversionError } from "./TypeConversionError";
 
-export const defaultParameterTypes: { [key: string]: TypeConverterFn } = {
+export const defaultParameterTypes: { [key: string]: TypeConverterFn<any> } = {
   string(value): string {
     return String(value);
   },

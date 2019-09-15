@@ -1,6 +1,6 @@
-export interface CommandManagerOptions {
+export interface CommandManagerOptions<TContext> {
   prefix?: RegExp | string;
-  types?: { [key: string]: TypeConverterFn };
+  types?: { [key: string]: TypeConverterFn<TContext> };
   defaultType?: string;
 }
 
@@ -42,43 +42,49 @@ export interface MatchedOptionMap {
 }
 
 // Commands
-export type PreFilterFn<TContext> = (
-  command: CommandDefinition<TContext>,
+export type PreFilterFn<TContext, TExtra> = (
+  command: CommandDefinition<TContext, TExtra>,
   context: TContext
 ) => boolean | Promise<boolean>;
-export type PostFilterFn<TContext> = (
-  command: MatchedCommand<TContext>,
+export type PostFilterFn<TContext, TExtra> = (
+  command: MatchedCommand<TContext, TExtra>,
   context: TContext
 ) => boolean | Promise<boolean>;
 
-export interface CommandConfig<TContext> {
+export type CommandConfig<TContext, TExtra> = {
   prefix?: string | RegExp;
   options?: CommandOption[];
   aliases?: string[];
-  preFilters?: PreFilterFn<TContext>[];
-  postFilters?: PostFilterFn<TContext>[];
-}
+  preFilters?: PreFilterFn<TContext, TExtra>[];
+  postFilters?: PostFilterFn<TContext, TExtra>[];
+  extra?: TExtra;
+};
 
-export interface CommandDefinition<TContext, TConfig extends CommandConfig<TContext> = CommandConfig<TContext>> {
+export type CommandDefinition<TContext, TExtra> = {
   id: number;
   prefix: RegExp | null;
   triggers: RegExp[];
   parameters: Parameter[];
   options: CommandOption[];
-  preFilters: PreFilterFn<TContext>[];
-  postFilters: PostFilterFn<TContext>[];
-  config: TConfig | null;
-}
+  preFilters: PreFilterFn<TContext, TExtra>[];
+  postFilters: PostFilterFn<TContext, TExtra>[];
+  config: CommandConfig<TContext, TExtra> | null;
+};
 
 // https://github.com/Microsoft/TypeScript/issues/12815
-export type CommandMatchResultSuccess<TContext> = { command: MatchedCommand<TContext>; error?: undefined };
+export type CommandMatchResultSuccess<TContext, TExtra> = {
+  command: MatchedCommand<TContext, TExtra>;
+  error?: undefined;
+};
 export type CommandMatchResultError = { error: string; command?: undefined };
-export type CommandMatchResult<TContext> = CommandMatchResultSuccess<TContext> | CommandMatchResultError;
+export type CommandMatchResult<TContext, TExtra> =
+  | CommandMatchResultSuccess<TContext, TExtra>
+  | CommandMatchResultError;
 
-export interface MatchedCommand<TContext> extends CommandDefinition<TContext> {
+export interface MatchedCommand<TContext, TExtra> extends CommandDefinition<TContext, TExtra> {
   args: ArgumentMap;
   opts: MatchedOptionMap;
   error?: undefined;
 }
 
-export type TypeConverterFn = (value: any) => any;
+export type TypeConverterFn<TContext> = ((value: any) => any) | ((value: any, context: TContext) => any);

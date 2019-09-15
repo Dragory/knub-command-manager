@@ -31,18 +31,19 @@ const defaultParameter: Partial<Parameter> = {
 };
 
 export class CommandManager<
-  TFilterContext = null,
-  TConfig extends CommandConfig<TFilterContext> = CommandConfig<TFilterContext>
+  TContext = null,
+  TConfigExtra = null,
+  TConfig extends CommandConfig<TContext, TConfigExtra> = CommandConfig<TContext, TConfigExtra>
 > {
-  protected commands: CommandDefinition<TFilterContext, TConfig>[] = [];
+  protected commands: CommandDefinition<TContext, TConfigExtra>[] = [];
 
   protected defaultPrefix: RegExp | null = null;
-  protected types: { [key: string]: TypeConverterFn };
+  protected types: { [key: string]: TypeConverterFn<TContext> };
   protected defaultType: string;
 
   protected commandId = 0;
 
-  constructor(opts: CommandManagerOptions) {
+  constructor(opts: CommandManagerOptions<TContext>) {
     if (opts.prefix != null) {
       const prefix = typeof opts.prefix === "string" ? new RegExp(escapeStringRegex(opts.prefix), "i") : opts.prefix;
       this.defaultPrefix = new RegExp(`^${prefix.source}`, prefix.flags);
@@ -75,8 +76,8 @@ export class CommandManager<
   public add(
     trigger: string | RegExp,
     parameters: string | Parameter[] = [],
-    config: TConfig | null = null
-  ): CommandDefinition<TFilterContext, TConfig> {
+    config?: TConfig
+  ): CommandDefinition<TContext, TConfigExtra> {
     // If we're overriding the default prefix, convert the new prefix to a regex (or keep it as null for no prefix)
     let prefix = this.defaultPrefix;
     if (config && config.prefix !== undefined) {
@@ -149,7 +150,7 @@ export class CommandManager<
 
     // Actually add the command to the manager
     const id = ++this.commandId;
-    const definition: CommandDefinition<TFilterContext, TConfig> = {
+    const definition: CommandDefinition<TContext, TConfigExtra> = {
       id,
       prefix,
       triggers: regexTriggers,
@@ -166,7 +167,7 @@ export class CommandManager<
     return definition;
   }
 
-  public remove(defOrId: CommandDefinition<TFilterContext, TConfig> | number) {
+  public remove(defOrId: CommandDefinition<TContext, TConfigExtra> | number) {
     const indexToRemove =
       typeof defOrId === "number" ? this.commands.findIndex(cmd => cmd.id === defOrId) : this.commands.indexOf(defOrId);
 
@@ -179,8 +180,8 @@ export class CommandManager<
    */
   public async findMatchingCommand(
     str: string,
-    ...context: TFilterContext extends null ? [null?] : [TFilterContext]
-  ): Promise<MatchedCommand<TFilterContext> | { error: string } | null> {
+    ...context: TContext extends null ? [null?] : [TContext]
+  ): Promise<MatchedCommand<TContext, TConfigExtra> | { error: string } | null> {
     let onlyErrors = true;
     let lastError: string | null = null;
 
@@ -190,13 +191,13 @@ export class CommandManager<
       if (command.preFilters.length) {
         let passed = false;
         for (const filter of command.preFilters) {
-          passed = await filter(command, filterContext as TFilterContext);
+          passed = await filter(command, filterContext as TContext);
           if (!passed) break;
         }
         if (!passed) continue;
       }
 
-      const matchResult = await this.tryMatchingCommand(command, str);
+      const matchResult = await this.tryMatchingCommand(command, str, filterContext as TContext);
       if (matchResult === null) continue;
 
       if (matchResult.error !== undefined) {
@@ -209,7 +210,7 @@ export class CommandManager<
       if (command.postFilters.length) {
         let passed = false;
         for (const filter of command.postFilters) {
-          passed = await filter(matchResult.command, filterContext as TFilterContext);
+          passed = await filter(matchResult.command, filterContext as TContext);
           if (!passed) break;
         }
         if (!passed) continue;
@@ -229,9 +230,10 @@ export class CommandManager<
    * Attempts to match the given command to a string.
    */
   protected async tryMatchingCommand(
-    command: CommandDefinition<TFilterContext, TConfig>,
-    str: string
-  ): Promise<CommandMatchResult<TFilterContext> | null> {
+    command: CommandDefinition<TContext, TConfigExtra>,
+    str: string,
+    context: TContext
+  ): Promise<CommandMatchResult<TContext, TConfigExtra> | null> {
     if (command.prefix) {
       const prefixMatch = str.match(command.prefix);
       if (!prefixMatch) return null;
@@ -439,9 +441,11 @@ export class CommandManager<
       if (arg.usesDefaultValue) continue;
       try {
         if (arg.parameter.rest) {
-          arg.value = arg.value.map(v => this.convertToArgumentType(v, arg.parameter.type || this.defaultType));
+          arg.value = arg.value.map(v =>
+            this.convertToArgumentType(v, arg.parameter.type || this.defaultType, context)
+          );
         } else {
-          arg.value = this.convertToArgumentType(arg.value, arg.parameter.type || this.defaultType);
+          arg.value = this.convertToArgumentType(arg.value, arg.parameter.type || this.defaultType, context);
         }
       } catch (e) {
         if (e instanceof TypeConversionError) {
@@ -456,7 +460,7 @@ export class CommandManager<
       if (opt.option.flag) continue;
       if (opt.usesDefaultValue) continue;
       try {
-        opt.value = this.convertToArgumentType(opt.value, opt.option.type || this.defaultType);
+        opt.value = this.convertToArgumentType(opt.value, opt.option.type || this.defaultType, context);
       } catch (e) {
         if (e instanceof TypeConversionError) {
           return { error: `Could not convert option ${opt.option.name} to type ${opt.option.type}` };
@@ -475,7 +479,7 @@ export class CommandManager<
     };
   }
 
-  protected convertToArgumentType(value, type): any {
-    return this.types[type](value);
+  protected convertToArgumentType(value: any, type: string, context: TContext): any {
+    return this.types[type](value, context);
   }
 }
