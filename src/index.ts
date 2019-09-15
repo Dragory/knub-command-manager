@@ -1,4 +1,4 @@
-export { MatchedCommand, CommandConfig } from "./types";
+export * from "./types";
 
 export { CommandManager } from "./CommandManager";
 export { parseArguments } from "./parseArguments";
