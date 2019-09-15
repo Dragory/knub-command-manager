@@ -5,6 +5,7 @@ import {
   CommandConfig,
   CommandDefinition,
   CommandManagerOptions,
+  FindMatchingCommandError,
   CommandMatchResult,
   CommandMatchResultError,
   CommandMatchResultSuccess,
@@ -174,6 +175,10 @@ export class CommandManager<
     if (indexToRemove !== -1) this.commands.splice(indexToRemove, 1);
   }
 
+  public get(id: number): CommandDefinition<TContext, TConfigExtra> | undefined {
+    return this.commands.find(cmd => cmd.id === id);
+  }
+
   /**
    * Find the first matching command in the given string, if any.
    * This function returns a promise to support async types and filter functions.
@@ -181,9 +186,10 @@ export class CommandManager<
   public async findMatchingCommand(
     str: string,
     ...context: TContext extends null ? [null?] : [TContext]
-  ): Promise<MatchedCommand<TContext, TConfigExtra> | { error: string } | null> {
+  ): Promise<MatchedCommand<TContext, TConfigExtra> | FindMatchingCommandError<TContext, TConfigExtra> | null> {
     let onlyErrors = true;
     let lastError: string | null = null;
+    let lastErrorCmd: CommandDefinition<TContext, TConfigExtra> | null = null;
 
     const filterContext = context[0];
 
@@ -202,6 +208,7 @@ export class CommandManager<
 
       if (matchResult.error !== undefined) {
         lastError = matchResult.error;
+        lastErrorCmd = command;
         continue;
       }
 
@@ -220,7 +227,10 @@ export class CommandManager<
     }
 
     if (onlyErrors && lastError !== null) {
-      return { error: lastError };
+      return {
+        error: lastError,
+        command: lastErrorCmd as CommandDefinition<TContext, TConfigExtra>
+      };
     }
 
     return null;

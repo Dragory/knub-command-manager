@@ -76,7 +76,7 @@ export type CommandMatchResultSuccess<TContext, TExtra> = {
   command: MatchedCommand<TContext, TExtra>;
   error?: undefined;
 };
-export type CommandMatchResultError = { error: string; command?: undefined };
+export type CommandMatchResultError = { error: string };
 export type CommandMatchResult<TContext, TExtra> =
   | CommandMatchResultSuccess<TContext, TExtra>
   | CommandMatchResultError;
@@ -88,3 +88,8 @@ export interface MatchedCommand<TContext, TExtra> extends CommandDefinition<TCon
 }
 
 export type TypeConverterFn<TContext> = ((value: any) => any) | ((value: any, context: TContext) => any);
+
+export interface FindMatchingCommandError<TContext, TExtra> {
+  error: string;
+  command: CommandDefinition<TContext, TExtra>;
+}

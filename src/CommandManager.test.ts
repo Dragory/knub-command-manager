@@ -511,5 +511,25 @@ describe("CommandManager", () => {
         assert.fail();
       }
     });
+
+    it("Should return the relevant command with match errors", async () => {
+      const manager = new CommandManager<null, { num: number }>({ prefix: "!" });
+      manager.add("foo", "<bar:number>", {
+        extra: {
+          num: 1
+        }
+      });
+      manager.add("foo", "<bar:number>", {
+        extra: {
+          num: 2
+        }
+      });
+
+      const matchResult = await manager.findMatchingCommand("!foo blah");
+      if (!matchResult || matchResult.error == null) return assert.fail();
+      if (matchResult.command.config == null || matchResult.command.config.extra == null) return assert.fail();
+      // Always the last command we tried to match and encountered an error in
+      expect(matchResult.command.config.extra.num).to.equal(2);
+    });
   });
 });
