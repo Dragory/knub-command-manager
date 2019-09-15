@@ -1,5 +1,8 @@
 # Changelog
 
+## 4.1.0
+* All types from `src/types.ts` are now exported from the main script
+
 ## 4.0.0
 * **BREAKING CHANGE:** Instead of being able to specify the type of command
   config directly (as the second generic type of `CommandManager`), you can now
