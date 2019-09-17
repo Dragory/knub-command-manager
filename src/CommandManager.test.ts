@@ -531,5 +531,23 @@ describe("CommandManager", () => {
       // Always the last command we tried to match and encountered an error in
       expect(matchResult.command.config.extra.num).to.equal(2);
     });
+
+    it("getAll()", async () => {
+      const manager = new CommandManager({ prefix: "!" });
+      const def1 = manager.add("foo");
+      const def2 = manager.add("bar");
+
+      const definitions1 = manager.getAll();
+      expect(definitions1.length).to.equal(2);
+      expect(definitions1[0]).to.equal(def1);
+      expect(definitions1[1]).to.equal(def2);
+
+      manager.remove(def1.id);
+      expect(definitions1.length).to.equal(2); // The earlier array returned by getAll() should not be modified
+
+      const definitions2 = manager.getAll();
+      expect(definitions2.length).to.equal(1);
+      expect(definitions2[0]).to.equal(def2);
+    });
   });
 });

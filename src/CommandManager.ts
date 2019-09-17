@@ -175,8 +175,18 @@ export class CommandManager<
     if (indexToRemove !== -1) this.commands.splice(indexToRemove, 1);
   }
 
+  /**
+   * Get a command's definition by its id
+   */
   public get(id: number): CommandDefinition<TContext, TConfigExtra> | undefined {
     return this.commands.find(cmd => cmd.id === id);
+  }
+
+  /**
+   * Get an array of all registered command definitions in the command manager
+   */
+  public getAll(): Array<CommandDefinition<TContext, TConfigExtra>> {
+    return [...this.commands];
   }
 
   /**

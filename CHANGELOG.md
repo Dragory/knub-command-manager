@@ -1,5 +1,8 @@
 # Changelog
 
+## 4.3.0
+* Add `CommandManager.getAll()` to get all registered commands
+
 ## 4.2.0
 * When `CommandManager.findMatchingCommands()` returns an error (the
   `{ error: string }` return object), the definition of the last command that
