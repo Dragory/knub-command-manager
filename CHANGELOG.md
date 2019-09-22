@@ -1,5 +1,10 @@
 # Changelog
 
+## 4.4.0
+* Include trigger sources (i.e. as they were supplied to `CommandManager.add()`)
+  in `CommandDefinition.originalTriggers`
+  * This is an array that also includes the sources of any specified aliases
+
 ## 4.3.0
 * Add `CommandManager.getAll()` to get all registered commands
 
