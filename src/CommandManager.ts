@@ -155,6 +155,7 @@ export class CommandManager<
       id,
       prefix,
       triggers: regexTriggers,
+      originalTriggers: triggers,
       parameters,
       options: (config && config.options) || [],
       preFilters: (config && config.preFilters) || [],

@@ -64,6 +64,7 @@ export type CommandDefinition<TContext, TExtra> = {
   id: number;
   prefix: RegExp | null;
   triggers: RegExp[];
+  originalTriggers: Array<string | RegExp>;
   parameters: Parameter[];
   options: CommandOption[];
   preFilters: PreFilterFn<TContext, TExtra>[];
