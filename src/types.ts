@@ -34,6 +34,10 @@ export type TOptionWithValue = TBaseOption & { type?: string; required?: boolean
 export type TFlagOption = TBaseOption & { flag: true };
 export type TOption = TOptionWithValue | TFlagOption;
 
+export function isFlagOption(option: TOption): option is TFlagOption {
+  return option.flag === true;
+}
+
 export interface IMatchedOption {
   option: TOption;
   value: any;
