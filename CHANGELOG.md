@@ -1,5 +1,12 @@
 # Changelog
 
+## 5.0.0
+* Add support for command signature overloads via new `overloads` property in
+  command config
+* Rename all exported types/interfaces to have an I/T prefix (depending on
+  whether it's a type or an interface)
+  * E.g. `CommandConfig` -> `ICommandConfig`
+
 ## 4.4.0
 * Include trigger sources (i.e. as they were supplied to `CommandManager.add()`)
   in `CommandDefinition.originalTriggers`
