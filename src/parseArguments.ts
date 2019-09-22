@@ -1,6 +1,8 @@
 const whitespace = /\s/;
 
-export function parseArguments(str: string): Array<{ index: number; value: string; quoted: boolean }> {
+export type TParsedArguments = Array<{ index: number; value: string; quoted: boolean }>;
+
+export function parseArguments(str: string): TParsedArguments {
   const args: Array<{ index: number; value: string; quoted: boolean }> = [];
   const chars = [...str]; // Unicode split
 

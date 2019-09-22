@@ -1,30 +1,35 @@
 import escapeStringRegex from "escape-string-regexp";
 import {
-  Argument,
-  ArgumentMap,
-  CommandConfig,
-  CommandDefinition,
-  CommandManagerOptions,
-  FindMatchingCommandError,
-  CommandMatchResult,
-  CommandMatchResultError,
-  CommandMatchResultSuccess,
-  FlagOption,
-  MatchedCommand,
-  MatchedOptionMap,
-  OptionWithValue,
-  Parameter,
-  TypeConverterFn
+  IArgument,
+  IArgumentMap,
+  TCommandConfig,
+  TCommandDefinition,
+  ICommandManagerOptions,
+  IFindMatchingCommandError,
+  ITryMatchingCommandResult,
+  TFlagOption,
+  IMatchedCommand,
+  IMatchedOptionMap,
+  TOptionWithValue,
+  IParameter,
+  TTypeConverterFn,
+  ITryMatchingArgumentsToSignatureResult,
+  isError,
+  TOrError,
+  TFindMatchingCommandResult,
+  findMatchingCommandResultHasError,
+  TParseableSignature,
+  TSignature
 } from "./types";
 import { defaultParameterTypes } from "./defaultParameterTypes";
-import { parseArguments } from "./parseArguments";
+import { parseArguments, TParsedArguments } from "./parseArguments";
 import { TypeConversionError } from "./TypeConversionError";
 import { parseParameters } from "./parseParameters";
 
 const optMatchRegex = /^--([^\s-]\S*?)(?:=(.+))?$/;
 const optShortcutMatchRegex = /^-([^\s-]+?)(?:=(.+))?$/;
 
-const defaultParameter: Partial<Parameter> = {
+const defaultParameter: Partial<IParameter> = {
   required: true,
   def: null,
   rest: false,
@@ -34,17 +39,17 @@ const defaultParameter: Partial<Parameter> = {
 export class CommandManager<
   TContext = null,
   TConfigExtra = null,
-  TConfig extends CommandConfig<TContext, TConfigExtra> = CommandConfig<TContext, TConfigExtra>
+  TConfig extends TCommandConfig<TContext, TConfigExtra> = TCommandConfig<TContext, TConfigExtra>
 > {
-  protected commands: CommandDefinition<TContext, TConfigExtra>[] = [];
+  protected commands: TCommandDefinition<TContext, TConfigExtra>[] = [];
 
   protected defaultPrefix: RegExp | null = null;
-  protected types: { [key: string]: TypeConverterFn<TContext> };
+  protected types: { [key: string]: TTypeConverterFn<TContext> };
   protected defaultType: string;
 
   protected commandId = 0;
 
-  constructor(opts: CommandManagerOptions<TContext>) {
+  constructor(opts: ICommandManagerOptions<TContext>) {
     if (opts.prefix != null) {
       const prefix = typeof opts.prefix === "string" ? new RegExp(escapeStringRegex(opts.prefix), "i") : opts.prefix;
       this.defaultPrefix = new RegExp(`^${prefix.source}`, prefix.flags);
@@ -76,9 +81,9 @@ export class CommandManager<
    */
   public add(
     trigger: string | RegExp,
-    parameters: string | Parameter[] = [],
+    parameters: TParseableSignature = [],
     config?: TConfig
-  ): CommandDefinition<TContext, TConfigExtra> {
+  ): TCommandDefinition<TContext, TConfigExtra> {
     // If we're overriding the default prefix, convert the new prefix to a regex (or keep it as null for no prefix)
     let prefix = this.defaultPrefix;
     if (config && config.prefix !== undefined) {
@@ -103,60 +108,71 @@ export class CommandManager<
       return new RegExp(`^${trigger.source}(?=\\s|$)`, trigger.flags);
     });
 
-    // If parameters are provided in string format, parse it
-    if (typeof parameters === "string") {
-      parameters = parseParameters(parameters);
-    } else if (parameters == null) {
-      parameters = [];
-    }
+    // Like triggers and their aliases, signatures (parameter lists) are provided through both the "parameters" argument
+    // and the "overloads" config value
+    const inputSignatures = [parameters];
+    if (config && config.overloads) inputSignatures.push(...config.overloads);
 
-    parameters = parameters.map(obj => Object.assign({ type: this.defaultType }, defaultParameter, obj));
-
-    // Validate parameters to prevent unsupported behaviour
-    let hadOptional = false;
-    let hadRest = false;
-    let hadCatchAll = false;
-
-    parameters.forEach(param => {
-      if (!this.types[param.type]) {
-        throw new Error(`Unknown parameter type: ${param.type}`);
+    const signatures = inputSignatures.map(signature => {
+      // If parameters are provided in string format, parse them
+      if (typeof signature === "string") {
+        signature = parseParameters(signature);
+      } else if (signature == null) {
+        signature = [];
       }
 
-      if (!param.required) {
-        if (hadOptional) {
-          throw new Error(`Can only have 1 optional parameter to avoid ambiguity`);
+      signature = signature.map(obj => Object.assign({ type: this.defaultType }, defaultParameter, obj));
+
+      return signature;
+    });
+
+    // Validate signatures to prevent unsupported behaviour
+    for (const signature of signatures) {
+      let hadOptional = false;
+      let hadRest = false;
+      let hadCatchAll = false;
+
+      signature.forEach(param => {
+        if (!this.types[param.type]) {
+          throw new Error(`Unknown parameter type: ${param.type}`);
         }
 
-        hadOptional = true;
-      } else if (hadOptional) {
-        throw new Error(`Optional parameter must come last`);
-      }
+        if (!param.required) {
+          if (hadOptional) {
+            throw new Error(`Can only have 1 optional parameter to avoid ambiguity`);
+          }
 
-      if (hadRest) {
-        throw new Error(`Rest parameter must come last`);
-      }
+          hadOptional = true;
+        } else if (hadOptional) {
+          throw new Error(`Optional parameter must come last`);
+        }
 
-      if (param.rest) {
-        hadRest = true;
-      }
+        if (hadRest) {
+          throw new Error(`Rest parameter must come last`);
+        }
 
-      if (hadCatchAll) {
-        throw new Error(`Catch-all parameter must come last`);
-      }
+        if (param.rest) {
+          hadRest = true;
+        }
 
-      if (param.catchAll) {
-        hadCatchAll = true;
-      }
-    });
+        if (hadCatchAll) {
+          throw new Error(`Catch-all parameter must come last`);
+        }
+
+        if (param.catchAll) {
+          hadCatchAll = true;
+        }
+      });
+    }
 
     // Actually add the command to the manager
     const id = ++this.commandId;
-    const definition: CommandDefinition<TContext, TConfigExtra> = {
+    const definition: TCommandDefinition<TContext, TConfigExtra> = {
       id,
       prefix,
       triggers: regexTriggers,
       originalTriggers: triggers,
-      parameters,
+      signatures,
       options: (config && config.options) || [],
       preFilters: (config && config.preFilters) || [],
       postFilters: (config && config.postFilters) || [],
@@ -169,7 +185,7 @@ export class CommandManager<
     return definition;
   }
 
-  public remove(defOrId: CommandDefinition<TContext, TConfigExtra> | number) {
+  public remove(defOrId: TCommandDefinition<TContext, TConfigExtra> | number) {
     const indexToRemove =
       typeof defOrId === "number" ? this.commands.findIndex(cmd => cmd.id === defOrId) : this.commands.indexOf(defOrId);
 
@@ -179,14 +195,14 @@ export class CommandManager<
   /**
    * Get a command's definition by its id
    */
-  public get(id: number): CommandDefinition<TContext, TConfigExtra> | undefined {
+  public get(id: number): TCommandDefinition<TContext, TConfigExtra> | undefined {
     return this.commands.find(cmd => cmd.id === id);
   }
 
   /**
    * Get an array of all registered command definitions in the command manager
    */
-  public getAll(): Array<CommandDefinition<TContext, TConfigExtra>> {
+  public getAll(): Array<TCommandDefinition<TContext, TConfigExtra>> {
     return [...this.commands];
   }
 
@@ -197,10 +213,10 @@ export class CommandManager<
   public async findMatchingCommand(
     str: string,
     ...context: TContext extends null ? [null?] : [TContext]
-  ): Promise<MatchedCommand<TContext, TConfigExtra> | FindMatchingCommandError<TContext, TConfigExtra> | null> {
+  ): Promise<TFindMatchingCommandResult<TContext, TConfigExtra> | null> {
     let onlyErrors = true;
     let lastError: string | null = null;
-    let lastErrorCmd: CommandDefinition<TContext, TConfigExtra> | null = null;
+    let lastErrorCmd: TCommandDefinition<TContext, TConfigExtra> | null = null;
 
     const filterContext = context[0];
 
@@ -217,7 +233,7 @@ export class CommandManager<
       const matchResult = await this.tryMatchingCommand(command, str, filterContext as TContext);
       if (matchResult === null) continue;
 
-      if (matchResult.error !== undefined) {
+      if (isError(matchResult)) {
         lastError = matchResult.error;
         lastErrorCmd = command;
         continue;
@@ -240,7 +256,7 @@ export class CommandManager<
     if (onlyErrors && lastError !== null) {
       return {
         error: lastError,
-        command: lastErrorCmd as CommandDefinition<TContext, TConfigExtra>
+        command: lastErrorCmd as TCommandDefinition<TContext, TConfigExtra>
       };
     }
 
@@ -248,13 +264,26 @@ export class CommandManager<
   }
 
   /**
+   * Type guard to check if the findMatchingCommand result had an error in a way that TypeScript understands it and
+   * narrows types properly afterwards.
+   *
+   * This is part of the manager class as otherwise the TContext and TExtra types would have to be specified any time
+   * this function is used. Having it here in the manager lets us set those automatically.
+   */
+  public findMatchingCommandResultHasError(
+    result: TFindMatchingCommandResult<TContext, TConfigExtra>
+  ): result is IFindMatchingCommandError<TContext, TConfigExtra> {
+    return findMatchingCommandResultHasError<TContext, TConfigExtra>(result);
+  }
+
+  /**
    * Attempts to match the given command to a string.
    */
   protected async tryMatchingCommand(
-    command: CommandDefinition<TContext, TConfigExtra>,
+    command: TCommandDefinition<TContext, TConfigExtra>,
     str: string,
     context: TContext
-  ): Promise<CommandMatchResult<TContext, TConfigExtra> | null> {
+  ): Promise<TOrError<ITryMatchingCommandResult<TContext, TConfigExtra>> | null> {
     if (command.prefix) {
       const prefixMatch = str.match(command.prefix);
       if (!prefixMatch) return null;
@@ -272,8 +301,39 @@ export class CommandManager<
     if (!matchedTrigger) return null;
 
     const parsedArguments = parseArguments(str);
-    const args: ArgumentMap = {};
-    const opts: MatchedOptionMap = {};
+
+    let signatureMatchResult: TOrError<ITryMatchingArgumentsToSignatureResult> | null = null;
+    for (const signature of command.signatures) {
+      signatureMatchResult = this.tryMatchingArgumentsToSignature(command, parsedArguments, signature, str, context);
+      if (!isError(signatureMatchResult)) break;
+    }
+
+    if (signatureMatchResult == null) {
+      return { error: "Command has no signatures" };
+    }
+
+    if (isError(signatureMatchResult)) {
+      return { error: signatureMatchResult.error };
+    }
+
+    return {
+      command: {
+        ...command,
+        args: signatureMatchResult.args,
+        opts: signatureMatchResult.opts
+      }
+    };
+  }
+
+  protected tryMatchingArgumentsToSignature(
+    command: TCommandDefinition<TContext, TConfigExtra>,
+    parsedArguments: TParsedArguments,
+    signature: TSignature,
+    str: string,
+    context: TContext
+  ): TOrError<ITryMatchingArgumentsToSignatureResult> {
+    const args: IArgumentMap = {};
+    const opts: IMatchedOptionMap = {};
 
     let paramIndex = 0;
     for (let i = 0; i < parsedArguments.length; i++) {
@@ -294,7 +354,7 @@ export class CommandManager<
 
           let optValue: string | boolean = fullOptMatch[2];
 
-          if ((opt as FlagOption).flag) {
+          if ((opt as TFlagOption).flag) {
             if (optValue) {
               return { error: `Flags can't have values: --${optName}` };
             }
@@ -342,7 +402,7 @@ export class CommandManager<
             const opt = matchingOpts[j];
             const isLast = j === matchingOpts.length - 1;
             if (isLast) {
-              if ((opt as FlagOption).flag) {
+              if ((opt as TFlagOption).flag) {
                 if (lastValue) {
                   return { error: `Flags can't have values: -${opt.shortcut}` };
                 }
@@ -376,7 +436,7 @@ export class CommandManager<
                 i++;
               }
             } else {
-              if (!(opt as FlagOption).flag) {
+              if (!(opt as TFlagOption).flag) {
                 return { error: `No value for option: -${opt.shortcut}` };
               }
 
@@ -392,7 +452,7 @@ export class CommandManager<
       }
 
       // Argument wasn't an option, so match it to a parameter instead
-      const param = command.parameters[paramIndex];
+      const param = signature[paramIndex];
       if (!param) {
         return { error: `Too many arguments` };
       }
@@ -428,7 +488,6 @@ export class CommandManager<
       paramIndex++;
     }
 
-    // Verify we have all required options and arguments and add default values
     for (const opt of command.options) {
       if (args[opt.name] != null) continue;
       if (opt.flag) continue;
@@ -443,7 +502,8 @@ export class CommandManager<
         };
       }
     }
-    for (const param of command.parameters) {
+
+    for (const param of signature) {
       if (args[param.name] != null) continue;
       if (param.required) {
         return { error: `Missing required argument: ${param.name}` };
@@ -492,11 +552,8 @@ export class CommandManager<
     }
 
     return {
-      command: {
-        ...command,
-        args,
-        opts
-      }
+      args,
+      opts
     };
   }
 

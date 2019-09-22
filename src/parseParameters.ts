@@ -1,4 +1,4 @@
-import { Parameter } from "./types";
+import { IParameter } from "./types";
 
 const paramDefinitionSimpleRegex = /[<\[].*?[>\]]/g;
 
@@ -13,11 +13,11 @@ const paramDefinitionRegex = new RegExp(
   "i"
 );
 
-export function parseParameters(str: string): Parameter[] {
+export function parseParameters(str: string): IParameter[] {
   const parameterDefinitions = str.match(paramDefinitionSimpleRegex) || [];
 
   return parameterDefinitions.map(
-    (parameterDefinition, i): Parameter => {
+    (parameterDefinition, i): IParameter => {
       const details = parameterDefinition.match(paramDefinitionRegex);
       if (!details) {
         throw new Error(`Invalid parameter definition: ${parameterDefinition}`);

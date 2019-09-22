@@ -1,6 +1,6 @@
 import { expect, assert } from "chai";
 import { CommandManager } from "./CommandManager";
-import { CommandConfig, MatchedCommand } from "./types";
+import { TCommandConfig, isError, IMatchedCommand } from "./types";
 
 describe("CommandManager", () => {
   describe("Parameter validation", () => {
@@ -57,6 +57,21 @@ describe("CommandManager", () => {
 
       try {
         manager.add("foo", "[arg1] <arg2>");
+      } catch (e) {
+        return;
+      }
+
+      assert.fail();
+    });
+
+    it("Validate all given signatures", () => {
+      const manager = new CommandManager({ prefix: "!" });
+
+      try {
+        // The initial parameters are valid, but the overload has an invalid type
+        manager.add("foo", "<bar:string>", {
+          overloads: ["<bar:unknownType>"]
+        });
       } catch (e) {
         return;
       }
@@ -548,6 +563,25 @@ describe("CommandManager", () => {
       const definitions2 = manager.getAll();
       expect(definitions2.length).to.equal(1);
       expect(definitions2[0]).to.equal(def2);
+    });
+
+    it("Match correct overload/signature", async () => {
+      const manager = new CommandManager({ prefix: "!" });
+      manager.add("foo", "<bar:number>", {
+        overloads: ["<baz:string>"]
+      });
+
+      const matched1 = await manager.findMatchingCommand("!foo 10");
+      if (!matched1 || manager.findMatchingCommandResultHasError(matched1)) return assert.fail();
+      expect(matched1.args.bar).to.exist;
+      expect(matched1.args.baz).to.not.exist;
+      expect(matched1.args.bar.value).to.equal(10);
+
+      const matched2 = await manager.findMatchingCommand("!foo test");
+      if (!matched2 || manager.findMatchingCommandResultHasError(matched2)) return assert.fail();
+      expect(matched2.args.bar).to.not.exist;
+      expect(matched2.args.baz).to.exist;
+      expect(matched2.args.baz.value).to.equal("test");
     });
   });
 });
