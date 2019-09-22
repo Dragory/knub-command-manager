@@ -1,5 +1,8 @@
 # Changelog
 
+## 5.1.0
+* Add and export `isFlagOption` type guard
+
 ## 5.0.0
 * Add support for command signature overloads via new `overloads` property in
   command config
