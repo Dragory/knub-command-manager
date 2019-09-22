@@ -2,8 +2,8 @@ import escapeStringRegex from "escape-string-regexp";
 import {
   IArgument,
   IArgumentMap,
-  TCommandConfig,
-  TCommandDefinition,
+  ICommandConfig,
+  ICommandDefinition,
   ICommandManagerOptions,
   IFindMatchingCommandError,
   ITryMatchingCommandResult,
@@ -39,9 +39,9 @@ const defaultParameter: Partial<IParameter> = {
 export class CommandManager<
   TContext = null,
   TConfigExtra = null,
-  TConfig extends TCommandConfig<TContext, TConfigExtra> = TCommandConfig<TContext, TConfigExtra>
+  TConfig extends ICommandConfig<TContext, TConfigExtra> = ICommandConfig<TContext, TConfigExtra>
 > {
-  protected commands: TCommandDefinition<TContext, TConfigExtra>[] = [];
+  protected commands: ICommandDefinition<TContext, TConfigExtra>[] = [];
 
   protected defaultPrefix: RegExp | null = null;
   protected types: { [key: string]: TTypeConverterFn<TContext> };
@@ -83,7 +83,7 @@ export class CommandManager<
     trigger: string | RegExp,
     parameters: TParseableSignature = [],
     config?: TConfig
-  ): TCommandDefinition<TContext, TConfigExtra> {
+  ): ICommandDefinition<TContext, TConfigExtra> {
     // If we're overriding the default prefix, convert the new prefix to a regex (or keep it as null for no prefix)
     let prefix = this.defaultPrefix;
     if (config && config.prefix !== undefined) {
@@ -167,7 +167,7 @@ export class CommandManager<
 
     // Actually add the command to the manager
     const id = ++this.commandId;
-    const definition: TCommandDefinition<TContext, TConfigExtra> = {
+    const definition: ICommandDefinition<TContext, TConfigExtra> = {
       id,
       prefix,
       triggers: regexTriggers,
@@ -185,7 +185,7 @@ export class CommandManager<
     return definition;
   }
 
-  public remove(defOrId: TCommandDefinition<TContext, TConfigExtra> | number) {
+  public remove(defOrId: ICommandDefinition<TContext, TConfigExtra> | number) {
     const indexToRemove =
       typeof defOrId === "number" ? this.commands.findIndex(cmd => cmd.id === defOrId) : this.commands.indexOf(defOrId);
 
@@ -195,14 +195,14 @@ export class CommandManager<
   /**
    * Get a command's definition by its id
    */
-  public get(id: number): TCommandDefinition<TContext, TConfigExtra> | undefined {
+  public get(id: number): ICommandDefinition<TContext, TConfigExtra> | undefined {
     return this.commands.find(cmd => cmd.id === id);
   }
 
   /**
    * Get an array of all registered command definitions in the command manager
    */
-  public getAll(): Array<TCommandDefinition<TContext, TConfigExtra>> {
+  public getAll(): Array<ICommandDefinition<TContext, TConfigExtra>> {
     return [...this.commands];
   }
 
@@ -216,7 +216,7 @@ export class CommandManager<
   ): Promise<TFindMatchingCommandResult<TContext, TConfigExtra> | null> {
     let onlyErrors = true;
     let lastError: string | null = null;
-    let lastErrorCmd: TCommandDefinition<TContext, TConfigExtra> | null = null;
+    let lastErrorCmd: ICommandDefinition<TContext, TConfigExtra> | null = null;
 
     const filterContext = context[0];
 
@@ -256,7 +256,7 @@ export class CommandManager<
     if (onlyErrors && lastError !== null) {
       return {
         error: lastError,
-        command: lastErrorCmd as TCommandDefinition<TContext, TConfigExtra>
+        command: lastErrorCmd as ICommandDefinition<TContext, TConfigExtra>
       };
     }
 
@@ -280,7 +280,7 @@ export class CommandManager<
    * Attempts to match the given command to a string.
    */
   protected async tryMatchingCommand(
-    command: TCommandDefinition<TContext, TConfigExtra>,
+    command: ICommandDefinition<TContext, TConfigExtra>,
     str: string,
     context: TContext
   ): Promise<TOrError<ITryMatchingCommandResult<TContext, TConfigExtra>> | null> {
@@ -326,7 +326,7 @@ export class CommandManager<
   }
 
   protected tryMatchingArgumentsToSignature(
-    command: TCommandDefinition<TContext, TConfigExtra>,
+    command: ICommandDefinition<TContext, TConfigExtra>,
     parsedArguments: TParsedArguments,
     signature: TSignature,
     str: string,

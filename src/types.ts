@@ -46,7 +46,7 @@ export interface IMatchedOptionMap {
 
 // Commands
 export type TPreFilterFn<TContext, TExtra> = (
-  command: TCommandDefinition<TContext, TExtra>,
+  command: ICommandDefinition<TContext, TExtra>,
   context: TContext
 ) => boolean | Promise<boolean>;
 export type TPostFilterFn<TContext, TExtra> = (
@@ -54,7 +54,7 @@ export type TPostFilterFn<TContext, TExtra> = (
   context: TContext
 ) => boolean | Promise<boolean>;
 
-export type TCommandConfig<TContext, TExtra> = {
+export interface ICommandConfig<TContext, TExtra> {
   prefix?: string | RegExp;
   options?: TOption[];
   aliases?: string[];
@@ -62,9 +62,9 @@ export type TCommandConfig<TContext, TExtra> = {
   preFilters?: TPreFilterFn<TContext, TExtra>[];
   postFilters?: TPostFilterFn<TContext, TExtra>[];
   extra?: TExtra;
-};
+}
 
-export type TCommandDefinition<TContext, TExtra> = {
+export interface ICommandDefinition<TContext, TExtra> {
   id: number;
   prefix: RegExp | null;
   triggers: RegExp[];
@@ -73,8 +73,8 @@ export type TCommandDefinition<TContext, TExtra> = {
   options: TOption[];
   preFilters: TPreFilterFn<TContext, TExtra>[];
   postFilters: TPostFilterFn<TContext, TExtra>[];
-  config: TCommandConfig<TContext, TExtra> | null;
-};
+  config: ICommandConfig<TContext, TExtra> | null;
+}
 
 // Relevant: https://github.com/Microsoft/TypeScript/issues/12815
 export type TError = { error: string };
@@ -93,7 +93,7 @@ export interface ITryMatchingArgumentsToSignatureResult {
   opts: IMatchedOptionMap;
 }
 
-export interface IMatchedCommand<TContext, TExtra> extends TCommandDefinition<TContext, TExtra> {
+export interface IMatchedCommand<TContext, TExtra> extends ICommandDefinition<TContext, TExtra> {
   args: IArgumentMap;
   opts: IMatchedOptionMap;
   error?: never;
@@ -101,7 +101,7 @@ export interface IMatchedCommand<TContext, TExtra> extends TCommandDefinition<TC
 
 export interface IFindMatchingCommandError<TContext, TExtra> {
   error: string;
-  command: TCommandDefinition<TContext, TExtra>;
+  command: ICommandDefinition<TContext, TExtra>;
 }
 
 export type TFindMatchingCommandResult<TContext, TExtra> =

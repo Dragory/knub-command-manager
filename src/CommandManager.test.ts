@@ -1,6 +1,6 @@
 import { expect, assert } from "chai";
 import { CommandManager } from "./CommandManager";
-import { TCommandConfig, isError, IMatchedCommand } from "./types";
+import { ICommandConfig, isError, IMatchedCommand } from "./types";
 
 describe("CommandManager", () => {
   describe("Parameter validation", () => {
