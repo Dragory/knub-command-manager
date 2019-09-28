@@ -1,5 +1,10 @@
 # Changelog
 
+## 5.2.0
+* Add support for async type conversion functions
+  * In other words, the command manager will wait for any promises returned by
+    type conversion functions to resolve with the converted value
+
 ## 5.1.0
 * Add and export `isFlagOption` type guard
 
