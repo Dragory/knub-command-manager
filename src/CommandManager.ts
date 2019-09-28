@@ -304,7 +304,13 @@ export class CommandManager<
 
     let signatureMatchResult: TOrError<ITryMatchingArgumentsToSignatureResult> | null = null;
     for (const signature of command.signatures) {
-      signatureMatchResult = this.tryMatchingArgumentsToSignature(command, parsedArguments, signature, str, context);
+      signatureMatchResult = await this.tryMatchingArgumentsToSignature(
+        command,
+        parsedArguments,
+        signature,
+        str,
+        context
+      );
       if (!isError(signatureMatchResult)) break;
     }
 
@@ -325,13 +331,13 @@ export class CommandManager<
     };
   }
 
-  protected tryMatchingArgumentsToSignature(
+  protected async tryMatchingArgumentsToSignature(
     command: ICommandDefinition<TContext, TConfigExtra>,
     parsedArguments: TParsedArguments,
     signature: TSignature,
     str: string,
     context: TContext
-  ): TOrError<ITryMatchingArgumentsToSignatureResult> {
+  ): Promise<TOrError<ITryMatchingArgumentsToSignatureResult>> {
     const args: IArgumentMap = {};
     const opts: IMatchedOptionMap = {};
 
@@ -522,11 +528,13 @@ export class CommandManager<
       if (arg.usesDefaultValue) continue;
       try {
         if (arg.parameter.rest) {
-          arg.value = arg.value.map(v =>
-            this.convertToArgumentType(v, arg.parameter.type || this.defaultType, context)
-          );
+          const values: any[] = [];
+          for (const value of arg.value) {
+            values.push(await this.convertToArgumentType(value, arg.parameter.type || this.defaultType, context));
+          }
+          arg.value = values;
         } else {
-          arg.value = this.convertToArgumentType(arg.value, arg.parameter.type || this.defaultType, context);
+          arg.value = await this.convertToArgumentType(arg.value, arg.parameter.type || this.defaultType, context);
         }
       } catch (e) {
         if (e instanceof TypeConversionError) {
@@ -541,7 +549,7 @@ export class CommandManager<
       if (opt.option.flag) continue;
       if (opt.usesDefaultValue) continue;
       try {
-        opt.value = this.convertToArgumentType(opt.value, opt.option.type || this.defaultType, context);
+        opt.value = await this.convertToArgumentType(opt.value, opt.option.type || this.defaultType, context);
       } catch (e) {
         if (e instanceof TypeConversionError) {
           return { error: `Could not convert option ${opt.option.name} to type ${opt.option.type}` };
