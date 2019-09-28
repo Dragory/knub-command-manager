@@ -95,6 +95,19 @@ describe("CommandManager", () => {
       expect(matched.args.arg2.value).to.equal("val2");
     });
 
+    it("Rest arguments", async () => {
+      const manager = new CommandManager({ prefix: "!" });
+      manager.add("foo", "<arg:number...>");
+
+      const matched = await manager.findMatchingCommand("!foo 20 720");
+
+      if (matched === null) return assert.fail();
+      if (matched.error !== undefined) return assert.fail();
+
+      expect(Object.keys(matched.args).length).to.equal(1);
+      expect(matched.args.arg.value).to.eql([20, 720]);
+    });
+
     it("Options", async () => {
       const manager = new CommandManager({ prefix: "!" });
       manager.add("foo", "<arg1>", {
@@ -324,6 +337,52 @@ describe("CommandManager", () => {
       if (matched2 === null) return assert.fail();
       if (matched2.error !== undefined) return assert.fail(matched1.error, undefined, `${matched1.error}`);
       expect(matched2.args.arg1.value).to.equal(20);
+    });
+
+    it("Async types", async () => {
+      const manager = new CommandManager({
+        prefix: "!",
+        types: {
+          asyncNumber(value) {
+            return new Promise(resolve => {
+              setTimeout(() => {
+                resolve(Number(value));
+              }, 10);
+            });
+          }
+        },
+        defaultType: "asyncNumber"
+      });
+      manager.add("foo", "<arg:asyncNumber>");
+
+      const matched = await manager.findMatchingCommand("!foo 50");
+      if (matched === null) return assert.fail();
+      if (matched.error !== undefined) return assert.fail();
+      expect(Object.keys(matched.args).length).to.equal(1);
+      expect(matched.args.arg.value).to.equal(50);
+    });
+
+    it("Async type for rest argument", async () => {
+      const manager = new CommandManager({
+        prefix: "!",
+        types: {
+          asyncNumber(value) {
+            return new Promise(resolve => {
+              setTimeout(() => {
+                resolve(Number(value));
+              }, 10);
+            });
+          }
+        },
+        defaultType: "asyncNumber"
+      });
+      manager.add("foo", "<arg:asyncNumber...>");
+
+      const matched = await manager.findMatchingCommand("!foo 50 1 820");
+      if (matched === null) return assert.fail();
+      if (matched.error !== undefined) return assert.fail();
+      expect(Object.keys(matched.args).length).to.equal(1);
+      expect(matched.args.arg.value).to.eql([50, 1, 820]);
     });
 
     it("Valid default type", () => {
