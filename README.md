@@ -11,7 +11,8 @@ framework, but can also be used as standalone.
 * Command prefixes (e.g. `!command` where `!` is the prefix)
 * Regex support for prefixes and command names
 * Required and optional arguments
-* `--options` and `--flags` with shortcuts (e.g. `-f`)
+* `-options` and `-switches` with shortcuts (e.g. `-f`)
+  * Customizable option prefixes (defaults to `--` and `-`)
 * Parameter/option types with runtime validation and type conversion
   * Including custom types
 * Default values for arguments/options
@@ -39,7 +40,8 @@ import { CommandManager } from 'knub-command-manager';
 const manager = new CommandManager({
   prefix: '!'
 });
-manager.add('echo', '<text:string>');
 
-const matchingCommand = manager.findMatchingCommand('!echo hello');
+const registeredCommand = manager.add('echo', '<text:string>');
+
+const matchedCommand = manager.findMatchingCommand('!echo hello');
 ```

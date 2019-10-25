@@ -1,5 +1,22 @@
 # Changelog
 
+## 6.0.0
+* Options and their shortcuts can now be used with the same prefix, e.g.
+  `-option` and `-o` both work by default, as do `--option` and `--o`.
+  Previously `--` was reserved for full option names and `-` was reserved for
+  shortcuts. This change was made to make option usage more intuitive.
+* You can now specify which option prefixes you want to use with the
+  `optionPrefixes` CommandManager config option. The default prefixes are
+  `--` and `-`.
+* **BREAKING CHANGE:** Undocumented but previously-supported option combining
+  (e.g. `-abcd` where a, b, c, and d are all different options) is no longer
+  supported due to the changes above
+* **BREAKING CHANGE:** Undocumented but previously-supported syntax
+  `!cmd arg1 arg2 -- this is all arg3` where ` -- ` forces the rest of the
+  arguments to be treated as if they were all one quoted argument is now
+  deprecated. It wasn't a very well known syntax and quotes do the job well
+  enough.
+
 ## 5.2.0
 * Add support for async type conversion functions
   * In other words, the command manager will wait for any promises returned by

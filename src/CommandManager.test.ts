@@ -108,7 +108,7 @@ describe("CommandManager", () => {
       expect(matched.args.arg.value).to.eql([20, 720]);
     });
 
-    it("Options", async () => {
+    it("Options (default prefixes)", async () => {
       const manager = new CommandManager({ prefix: "!" });
       manager.add("foo", "<arg1>", {
         options: [
@@ -116,14 +116,42 @@ describe("CommandManager", () => {
           { name: "option2", shortcut: "p" },
           { name: "option3", shortcut: "t" },
           { name: "option4", shortcut: "i" },
-          { name: "flag1", shortcut: "f", flag: true },
-          { name: "flag2", shortcut: "l", flag: true },
-          { name: "flag3", shortcut: "a", flag: true }
+          { name: "switch1", shortcut: "f", isSwitch: true },
+          { name: "switch2", shortcut: "a", isSwitch: true }
         ]
       });
 
       const matched = await manager.findMatchingCommand(
-        "!foo val1 --option1 optval1 --option2=optval2 -f -lt optval3 -i=optval4"
+        "!foo val1 --option1 optval1 --option2=optval2 -f -t optval3 -i=optval4"
+      );
+
+      if (matched === null) return assert.fail();
+      if (matched.error !== undefined) return assert.fail(matched.error);
+
+      expect(matched.args.arg1.value).to.equal("val1");
+      expect(matched.opts.option1.value).to.equal("optval1");
+      expect(matched.opts.option2.value).to.equal("optval2");
+      expect(matched.opts.option3.value).to.equal("optval3");
+      expect(matched.opts.option4.value).to.equal("optval4");
+      expect(matched.opts.switch1.value).to.equal(true);
+      expect(matched.opts.switch2).to.be.undefined;
+    });
+
+    it("- and -- are interchangeable for options/option shortcuts", async () => {
+      const manager = new CommandManager({ prefix: "!" });
+      manager.add("foo", "<arg1>", {
+        options: [
+          { name: "option1", shortcut: "o" },
+          { name: "option2", shortcut: "p" },
+          { name: "option3", shortcut: "t" },
+          { name: "option4", shortcut: "i" },
+          { name: "switch1", shortcut: "f", isSwitch: true },
+          { name: "switch2", shortcut: "a", isSwitch: true }
+        ]
+      });
+
+      const matched = await manager.findMatchingCommand(
+        "!foo val1 -option1 optval1 -option2=optval2 --f --t optval3 --i=optval4"
       );
 
       if (matched === null) return assert.fail();
@@ -134,9 +162,66 @@ describe("CommandManager", () => {
       expect(matched.opts.option2.value).to.equal("optval2");
       expect(matched.opts.option3.value).to.equal("optval3");
       expect(matched.opts.option4.value).to.equal("optval4");
-      expect(matched.opts.flag1.value).to.equal(true);
-      expect(matched.opts.flag2.value).to.equal(true);
-      expect(matched.opts.flag3).to.be.undefined;
+      expect(matched.opts.switch1.value).to.equal(true);
+      expect(matched.opts.switch2).to.be.undefined;
+    });
+
+    it("Custom option prefixes", async () => {
+      const manager = new CommandManager({
+        prefix: "!",
+        optionPrefixes: ["/"]
+      });
+      manager.add("foo", "", {
+        options: [{ name: "option1", shortcut: "o" }, { name: "option2", shortcut: "o2" }]
+      });
+
+      const matched = await manager.findMatchingCommand("!foo /option1 optvalue1 /o2 optvalue2");
+
+      if (matched === null) return assert.fail();
+      if (matched.error !== undefined) return assert.fail();
+
+      expect(matched.opts.option1.value).to.equal("optvalue1");
+      expect(matched.opts.option2.value).to.equal("optvalue2");
+
+      const nonMatching = await manager.findMatchingCommand("!foo -option1 optvalue1");
+
+      if (nonMatching === null) return assert.fail();
+      if (nonMatching.error === undefined) return assert.fail(); // This should fail
+    });
+
+    it("Proper matching order for custom option prefixes", async () => {
+      // Option prefixes should be matched starting from the longest so that if a long prefix contains a shorter one at
+      // the start, the shorter one isn't matched instead of the longer one
+      const manager = new CommandManager({
+        prefix: "!",
+        optionPrefixes: ["-", "----"]
+      });
+      manager.add("foo", "", {
+        options: [{ name: "option1", shortcut: "o" }]
+      });
+
+      const matched = await manager.findMatchingCommand("!foo ----option1=optvalue1");
+
+      if (matched === null) return assert.fail();
+      if (matched.error !== undefined) return assert.fail();
+
+      expect(matched.opts.option1.value).to.equal("optvalue1");
+    });
+
+    it("[DEPRECATION] Do not support combined option shortcuts (-abcd)", async () => {
+      const manager = new CommandManager({ prefix: "!" });
+      manager.add("foo", "<arg1>", {
+        options: [
+          { name: "switch1", shortcut: "a", isSwitch: true },
+          { name: "switch2", shortcut: "b", isSwitch: true },
+          { name: "switch3", shortcut: "c", isSwitch: true }
+        ]
+      });
+
+      const matched = await manager.findMatchingCommand("!foo val1 -abc");
+
+      if (matched === null) return assert.fail();
+      if (matched.error === undefined) return assert.fail();
     });
 
     it("Rest arguments", async () => {
@@ -257,13 +342,13 @@ describe("CommandManager", () => {
       expect(matched2.opts.opt).to.equal(undefined);
     });
 
-    it("Supports ending parameter parsing with -- and treating everything afterwards as if it was quoted", async () => {
+    it("[DEPRECATION] No longer support ending parameter parsing with -- and treating everything afterwards as if it was quoted", async () => {
       const manager = new CommandManager({ prefix: "!" });
       manager.add("foo", "<arg>");
 
       const matched1 = await manager.findMatchingCommand("!foo -- this will be in arg");
-      if (matched1 === null || matched1.error !== undefined) return assert.fail();
-      expect(matched1.args.arg.value).to.equal("this will be in arg");
+      if (matched1 === null) return assert.fail();
+      if (matched1.error === undefined) return assert.fail();
     });
 
     it("Should not include leading spaces in a first argument catch-all", async () => {
@@ -641,6 +726,10 @@ describe("CommandManager", () => {
       expect(matched2.args.bar).to.not.exist;
       expect(matched2.args.baz).to.exist;
       expect(matched2.args.baz.value).to.equal("test");
+    });
+
+    it("Complex prefix", async () => {
+      const manager = new CommandManager({ prefix: "!" });
     });
   });
 });

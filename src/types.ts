@@ -2,6 +2,7 @@ export interface ICommandManagerOptions<TContext> {
   prefix?: RegExp | string;
   types?: { [key: string]: TTypeConverterFn<TContext> };
   defaultType?: string;
+  optionPrefixes?: string[];
 }
 
 // Parameters
@@ -30,12 +31,12 @@ export interface IArgumentMap {
 
 // Options
 export type TBaseOption = { name: string; shortcut?: string };
-export type TOptionWithValue = TBaseOption & { type?: string; required?: boolean; def?: any; flag?: false };
-export type TFlagOption = TBaseOption & { flag: true };
-export type TOption = TOptionWithValue | TFlagOption;
+export type TOptionWithValue = TBaseOption & { type?: string; required?: boolean; def?: any; isSwitch?: false };
+export type TSwitchOption = TBaseOption & { isSwitch: true };
+export type TOption = TOptionWithValue | TSwitchOption;
 
-export function isFlagOption(option: TOption): option is TFlagOption {
-  return option.flag === true;
+export function isSwitchOption(option: TOption): option is TSwitchOption {
+  return option.isSwitch === true;
 }
 
 export interface IMatchedOption {

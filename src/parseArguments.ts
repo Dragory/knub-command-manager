@@ -40,10 +40,6 @@ export function parseArguments(str: string): TParsedArguments {
       } else {
         current += char;
       }
-    } else if (!inQuote && char === "-" && chars.slice(i - 1, 4).join("") === " -- ") {
-      current = chars.slice(i + 3).join("");
-      flushCurrent(0, true);
-      break;
     } else {
       current += char;
     }

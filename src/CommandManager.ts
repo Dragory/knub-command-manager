@@ -7,7 +7,7 @@ import {
   ICommandManagerOptions,
   IFindMatchingCommandError,
   ITryMatchingCommandResult,
-  TFlagOption,
+  TSwitchOption,
   IMatchedCommand,
   IMatchedOptionMap,
   TOptionWithValue,
@@ -19,15 +19,16 @@ import {
   TFindMatchingCommandResult,
   findMatchingCommandResultHasError,
   TParseableSignature,
-  TSignature
+  TSignature,
+  IMatchedOption
 } from "./types";
 import { defaultParameterTypes } from "./defaultParameterTypes";
 import { parseArguments, TParsedArguments } from "./parseArguments";
 import { TypeConversionError } from "./TypeConversionError";
 import { parseParameters } from "./parseParameters";
 
-const optMatchRegex = /^--([^\s-]\S*?)(?:=(.+))?$/;
-const optShortcutMatchRegex = /^-([^\s-]+?)(?:=(.+))?$/;
+const optMatchRegex = /^(\S*?)(?:=(.+))?$/;
+const defaultOptionPrefixes = ["-", "--"];
 
 const defaultParameter: Partial<IParameter> = {
   required: true,
@@ -46,6 +47,7 @@ export class CommandManager<
   protected defaultPrefix: RegExp | null = null;
   protected types: { [key: string]: TTypeConverterFn<TContext> };
   protected defaultType: string;
+  protected optionPrefixes: string[];
 
   protected commandId = 0;
 
@@ -57,6 +59,15 @@ export class CommandManager<
 
     this.types = opts.types || defaultParameterTypes;
     this.defaultType = opts.defaultType || "string";
+    this.optionPrefixes = Array.from(opts.optionPrefixes || defaultOptionPrefixes);
+
+    // Sort the prefixes descending by length so that if a longer prefix includes a shorter one at the start,
+    // the shorter one isn't matched first
+    this.optionPrefixes.sort((a, b) => {
+      if (a.length > b.length) return -1;
+      if (a.length < b.length) return 1;
+      return 0;
+    });
 
     if (!this.types[this.defaultType]) {
       throw new Error(`Default type "${this.defaultType}" not found in types!`);
@@ -346,114 +357,47 @@ export class CommandManager<
       const arg = parsedArguments[i];
 
       if (!arg.quoted) {
-        // Check if the argument is an --option
-        // Both --option=value and --option value syntaxes are supported;
-        // in the latter case we consume the next argument as the value
-        const fullOptMatch = arg.value.match(optMatchRegex);
-        if (fullOptMatch) {
-          const optName = fullOptMatch[1];
+        // Check if the argument is an -option or its shortcut -o
+        // Supports multiple prefixes from the optionPrefixes config option
+        const matchingOptionPrefix = this.optionPrefixes.find(pr => arg.value.startsWith(pr));
+        if (matchingOptionPrefix) {
+          let optMatch = arg.value.slice(matchingOptionPrefix.length).match(optMatchRegex);
 
-          const opt = command.options.find(o => o.name === optName);
-          if (!opt) {
-            return { error: `Unknown option: --${optName}` };
-          }
+          if (optMatch) {
+            const optName = optMatch[1];
 
-          let optValue: string | boolean = fullOptMatch[2];
-
-          if ((opt as TFlagOption).flag) {
-            if (optValue) {
-              return { error: `Flags can't have values: --${optName}` };
-            }
-            optValue = true;
-          } else if (optValue == null) {
-            // If we're not a flag, and we don't have a =value, consume the next argument as the value instead
-            const nextArg = parsedArguments[i + 1];
-            if (!nextArg) {
-              return { error: `No value for option: --${optName}` };
+            const opt = command.options.find(o => o.name === optName || o.shortcut === optName);
+            if (!opt) {
+              return { error: `Unknown option: ${matchingOptionPrefix}${optName}` };
             }
 
-            optValue = nextArg.value;
+            let optValue: string | boolean = optMatch[2];
 
-            // Skip the next arg in the loop since we just consumed it
-            i++;
-          }
-
-          opts[opt.name] = {
-            option: opt,
-            value: optValue
-          };
-
-          continue;
-        }
-
-        // Check if the argument is a string of option shortcuts, i.e. -abcd
-        // The last option can have a value with either -abcd=value or -abcd value;
-        // in the latter case we consume the next argument as the value
-        const optShortcutMatch = arg.value.match(optShortcutMatchRegex);
-        if (optShortcutMatch) {
-          const shortcuts = [...optShortcutMatch[1]];
-          const lastValue = optShortcutMatch[2];
-          const optShortcuts = command.options.reduce((map, opt) => {
-            if (opt.shortcut) map[opt.shortcut] = opt;
-            return map;
-          }, {});
-          const matchingOpts = shortcuts.map(s => optShortcuts[s]);
-
-          const unknownOptShortcutIndex = matchingOpts.findIndex(o => o == null);
-          if (unknownOptShortcutIndex !== -1) {
-            return { error: `Unknown option shortcut: -${shortcuts[unknownOptShortcutIndex]}` };
-          }
-
-          for (let j = 0; j < matchingOpts.length; j++) {
-            const opt = matchingOpts[j];
-            const isLast = j === matchingOpts.length - 1;
-            if (isLast) {
-              if ((opt as TFlagOption).flag) {
-                if (lastValue) {
-                  return { error: `Flags can't have values: -${opt.shortcut}` };
-                }
-
-                opts[opt.name] = {
-                  option: opt,
-                  value: true
-                };
-              } else {
-                if (lastValue) {
-                  opts[opt.name] = {
-                    option: opt,
-                    value: lastValue
-                  };
-
-                  continue;
-                }
-
-                // If we're not a flag, and we don't have a =value, consume the next argument as the value instead
-                const nextArg = parsedArguments[i + 1];
-                if (!nextArg) {
-                  return { error: `No value for option: -${opt.shortcut}` };
-                }
-
-                opts[opt.name] = {
-                  option: opt,
-                  value: nextArg.value
-                };
-
-                // Skip the next arg in the loop since we just consumed it
-                i++;
+            if ((opt as TSwitchOption).isSwitch) {
+              if (optValue) {
+                return { error: `Switch options can't have values: ${matchingOptionPrefix}${optName}` };
               }
-            } else {
-              if (!(opt as TFlagOption).flag) {
-                return { error: `No value for option: -${opt.shortcut}` };
+              optValue = true;
+            } else if (optValue == null) {
+              // If we're not a flag, and we don't have a =value, consume the next argument as the value instead
+              const nextArg = parsedArguments[i + 1];
+              if (!nextArg) {
+                return { error: `No value for option: ${matchingOptionPrefix}${optName}` };
               }
 
-              opts[opt.name] = {
-                option: opt,
-                value: true
-              };
-            }
-          }
+              optValue = nextArg.value;
 
-          continue;
+              // Skip the next arg in the loop since we just consumed it
+              i++;
+            }
+
+            opts[opt.name] = {
+              option: opt,
+              value: optValue
+            };
+
+            continue;
+          }
         }
       }
 
@@ -496,7 +440,7 @@ export class CommandManager<
 
     for (const opt of command.options) {
       if (args[opt.name] != null) continue;
-      if (opt.flag) continue;
+      if (opt.isSwitch) continue;
       if (opt.required) {
         return { error: `Missing required option: ${opt.name}` };
       }
@@ -546,7 +490,7 @@ export class CommandManager<
     }
 
     for (const opt of Object.values(opts)) {
-      if (opt.option.flag) continue;
+      if (opt.option.isSwitch) continue;
       if (opt.usesDefaultValue) continue;
       try {
         opt.value = await this.convertToArgumentType(opt.value, opt.option.type || this.defaultType, context);
