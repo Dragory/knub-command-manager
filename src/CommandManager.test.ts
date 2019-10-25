@@ -731,5 +731,26 @@ describe("CommandManager", () => {
     it("Complex prefix", async () => {
       const manager = new CommandManager({ prefix: "!" });
     });
+
+    it("Original prefix exists", async () => {
+      const originalStringPrefix = "!";
+      const manager = new CommandManager({ prefix: originalStringPrefix });
+      expect((manager.getDefaultPrefix() as RegExp).source).to.equal("^!");
+      expect(manager.getOriginalDefaultPrefix()).to.equal(originalStringPrefix);
+
+      const originalRegExpPrefix = /(?:a|b)/;
+      const manager2 = new CommandManager({ prefix: originalRegExpPrefix });
+      expect((manager2.getDefaultPrefix() as RegExp).source).to.equal("^(?:a|b)");
+      expect(manager2.getOriginalDefaultPrefix()).to.equal(originalRegExpPrefix);
+
+      const manager3 = new CommandManager({ prefix: originalStringPrefix });
+      manager3.add("foo");
+
+      const matchedCommand = await manager3.findMatchingCommand("!foo");
+      if (matchedCommand == null) return assert.fail();
+      if (matchedCommand.error != null) return assert.fail(matchedCommand.error);
+      expect(matchedCommand.originalPrefix).to.equal("!");
+      expect((matchedCommand.prefix as RegExp).source).to.equal("^!");
+    });
   });
 });

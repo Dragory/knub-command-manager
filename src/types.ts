@@ -72,6 +72,7 @@ export interface ICommandConfig<TContext, TExtra> {
 export interface ICommandDefinition<TContext, TExtra> {
   id: number;
   prefix: RegExp | null;
+  originalPrefix: string | RegExp | null;
   triggers: RegExp[];
   originalTriggers: Array<string | RegExp>;
   signatures: TSignature[];

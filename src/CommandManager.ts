@@ -45,6 +45,7 @@ export class CommandManager<
   protected commands: ICommandDefinition<TContext, TConfigExtra>[] = [];
 
   protected defaultPrefix: RegExp | null = null;
+  protected originalDefaultPrefix: string | RegExp | null = null;
   protected types: { [key: string]: TTypeConverterFn<TContext> };
   protected defaultType: string;
   protected optionPrefixes: string[];
@@ -54,6 +55,7 @@ export class CommandManager<
   constructor(opts: ICommandManagerOptions<TContext>) {
     if (opts.prefix != null) {
       const prefix = typeof opts.prefix === "string" ? new RegExp(escapeStringRegex(opts.prefix), "i") : opts.prefix;
+      this.originalDefaultPrefix = opts.prefix;
       this.defaultPrefix = new RegExp(`^${prefix.source}`, prefix.flags);
     }
 
@@ -97,13 +99,18 @@ export class CommandManager<
   ): ICommandDefinition<TContext, TConfigExtra> {
     // If we're overriding the default prefix, convert the new prefix to a regex (or keep it as null for no prefix)
     let prefix = this.defaultPrefix;
+    let originalPrefix = this.originalDefaultPrefix;
+
     if (config && config.prefix !== undefined) {
       if (config.prefix === null) {
         prefix = null;
+        originalPrefix = null;
       } else if (typeof config.prefix === "string") {
         prefix = new RegExp(`^${escapeStringRegex(config.prefix)}`, "i");
+        originalPrefix = config.prefix;
       } else {
         prefix = new RegExp(`^${config.prefix.source}`, config.prefix.flags);
+        originalPrefix = config.prefix;
       }
     }
 
@@ -181,6 +188,7 @@ export class CommandManager<
     const definition: ICommandDefinition<TContext, TConfigExtra> = {
       id,
       prefix,
+      originalPrefix,
       triggers: regexTriggers,
       originalTriggers: triggers,
       signatures,
@@ -215,6 +223,21 @@ export class CommandManager<
    */
   public getAll(): Array<ICommandDefinition<TContext, TConfigExtra>> {
     return [...this.commands];
+  }
+
+  /**
+   * Returns the prefix that is currently being used as the default prefix for added commands.
+   * This is the internal RegExp representation of the passed "prefix" option.
+   */
+  public getDefaultPrefix(): RegExp | null {
+    return this.defaultPrefix;
+  }
+
+  /**
+   * Returns the original prefix passed in CommandManager options, if any
+   */
+  public getOriginalDefaultPrefix(): string | RegExp | null {
+    return this.originalDefaultPrefix;
   }
 
   /**
