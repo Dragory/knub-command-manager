@@ -1,5 +1,15 @@
 # Changelog
 
+## 6.1.0
+* The original prefix of a command (i.e. like it was before it was converted to
+  the internal regex version) is now available in
+  `CommandDefinition.originalPrefix`
+* Add `CommandManager.getDefaultPrefix()` to get the internal regex version of
+  the current default prefix for added commands. This is based on the `prefix`
+  option passed in `CommandManager` options, or `null` if none was passed
+* Add `CommandManager.getOriginalDefaultPrefix()` to get the original value
+  of the `prefix` option passed in `CommandManager` options
+
 ## 6.0.0
 * Options and their shortcuts can now be used with the same prefix, e.g.
   `-option` and `-o` both work by default, as do `--option` and `--o`.
