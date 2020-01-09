@@ -1,5 +1,13 @@
 # Changelog
 
+## 7.0.0
+* You can now escape characters for argument parsing with a backslash (`\ `)
+  * This bumps the major version since it is technically a breaking change to
+    argument parsing (since backslashes are now effectively ignored unless also
+    escaped)
+* Fix bug where options with quotes would be interpreted as arguments and e.g.
+  get included in catch-all arguments
+
 ## 6.1.0
 * The original prefix of a command (i.e. like it was before it was converted to
   the internal regex version) is now available in
