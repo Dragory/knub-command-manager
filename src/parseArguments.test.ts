@@ -6,4 +6,10 @@ describe("parseArguments", () => {
     const result = parseArguments(" test");
     expect(result[0].index).to.equal(1);
   });
+
+  it("Supports escaping", () => {
+    const result = parseArguments("foo 'bar \\' baz' quux");
+    expect(result.length).to.equal(3);
+    expect(result[1].value).to.equal("bar ' baz");
+  });
 });
