@@ -360,7 +360,7 @@ describe("CommandManager", () => {
       expect(matched1.args.arg.value).to.equal("test");
     });
 
-    it("Should handle catch-all arguments and '=' syntax options properly", async () => {
+    it("[EDGE CASE] Should not interpret options with quotes as arguments", async () => {
       const manager = new CommandManager({ prefix: "!" });
       manager.add("foo", "<arg$>", {
         options: [
