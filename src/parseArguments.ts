@@ -12,6 +12,7 @@ export function parseArguments(str: string): TParsedArguments {
   let current = "";
   let escape = false;
   let inQuote: string | null = null;
+  let startedWithQuote = false;
 
   const flushCurrent = (newIndex: number, quoted = false) => {
     const argIndex = index;
@@ -34,9 +35,13 @@ export function parseArguments(str: string): TParsedArguments {
     } else if (quoteChars.includes(char)) {
       if (inQuote === null) {
         inQuote = char;
+        if (current === "") {
+          startedWithQuote = true;
+        }
       } else if (inQuote === char) {
-        flushCurrent(i + 1, true);
+        flushCurrent(i + 1, startedWithQuote);
         inQuote = null;
+        startedWithQuote = false;
       } else {
         current += char;
       }

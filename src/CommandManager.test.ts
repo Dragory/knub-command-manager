@@ -325,7 +325,7 @@ describe("CommandManager", () => {
       expect(matched2.opts.opt.value).to.equal("val");
     });
 
-    it("Match options in quotes", async () => {
+    it("Don't match options in quotes", async () => {
       const manager = new CommandManager({ prefix: "!" });
       manager.add("foo", "[arg]", {
         options: [{ name: "opt" }]
@@ -338,8 +338,8 @@ describe("CommandManager", () => {
 
       const matched2 = await manager.findMatchingCommand("!foo '--opt=val'");
       if (matched2 === null || matched2.error !== undefined) return assert.fail();
-      expect(matched2.args.arg).to.equal(undefined);
-      expect(matched2.opts.opt.value).to.equal("val");
+      expect(matched2.args.arg.value).to.equal("--opt=val");
+      expect(matched2.opts.opt).to.equal(undefined);
     });
 
     it("[DEPRECATION] No longer support ending parameter parsing with -- and treating everything afterwards as if it was quoted", async () => {

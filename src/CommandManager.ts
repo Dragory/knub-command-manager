@@ -379,46 +379,48 @@ export class CommandManager<
     for (let i = 0; i < parsedArguments.length; i++) {
       const arg = parsedArguments[i];
 
-      // Check if the argument is an -option or its shortcut -o
-      // Supports multiple prefixes from the optionPrefixes config option
-      const matchingOptionPrefix = this.optionPrefixes.find(pr => arg.value.startsWith(pr));
-      if (matchingOptionPrefix) {
-        let optMatch = arg.value.slice(matchingOptionPrefix.length).match(optMatchRegex);
+      if (!arg.quoted) {
+        // Check if the argument is an -option or its shortcut -o
+        // Supports multiple prefixes from the optionPrefixes config option
+        const matchingOptionPrefix = this.optionPrefixes.find(pr => arg.value.startsWith(pr));
+        if (matchingOptionPrefix) {
+          let optMatch = arg.value.slice(matchingOptionPrefix.length).match(optMatchRegex);
 
-        if (optMatch) {
-          const optName = optMatch[1];
+          if (optMatch) {
+            const optName = optMatch[1];
 
-          const opt = command.options.find(o => o.name === optName || o.shortcut === optName);
-          if (!opt) {
-            return { error: `Unknown option: ${matchingOptionPrefix}${optName}` };
-          }
-
-          let optValue: string | boolean = optMatch[2];
-
-          if ((opt as TSwitchOption).isSwitch) {
-            if (optValue) {
-              return { error: `Switch options can't have values: ${matchingOptionPrefix}${optName}` };
-            }
-            optValue = true;
-          } else if (optValue == null) {
-            // If we're not a flag, and we don't have a =value, consume the next argument as the value instead
-            const nextArg = parsedArguments[i + 1];
-            if (!nextArg) {
-              return { error: `No value for option: ${matchingOptionPrefix}${optName}` };
+            const opt = command.options.find(o => o.name === optName || o.shortcut === optName);
+            if (!opt) {
+              return { error: `Unknown option: ${matchingOptionPrefix}${optName}` };
             }
 
-            optValue = nextArg.value;
+            let optValue: string | boolean = optMatch[2];
 
-            // Skip the next arg in the loop since we just consumed it
-            i++;
+            if ((opt as TSwitchOption).isSwitch) {
+              if (optValue) {
+                return { error: `Switch options can't have values: ${matchingOptionPrefix}${optName}` };
+              }
+              optValue = true;
+            } else if (optValue == null) {
+              // If we're not a flag, and we don't have a =value, consume the next argument as the value instead
+              const nextArg = parsedArguments[i + 1];
+              if (!nextArg) {
+                return { error: `No value for option: ${matchingOptionPrefix}${optName}` };
+              }
+
+              optValue = nextArg.value;
+
+              // Skip the next arg in the loop since we just consumed it
+              i++;
+            }
+
+            opts[opt.name] = {
+              option: opt,
+              value: optValue
+            };
+
+            continue;
           }
-
-          opts[opt.name] = {
-            option: opt,
-            value: optValue
-          };
-
-          continue;
         }
       }
 
