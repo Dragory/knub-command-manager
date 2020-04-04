@@ -1,5 +1,10 @@
 # Changelog
 
+## 7.1.0
+* The previously-internal `CommandManager.tryMatchingCommand()` is now a public
+  method. It can be used to do more granular matching than with
+  `CommandManager.findMatchingCommand()`.
+
 ## 7.0.0
 * You can now escape characters for argument parsing with a backslash (`\ `)
   * This bumps the major version since it is technically a breaking change to

@@ -313,7 +313,7 @@ export class CommandManager<
   /**
    * Attempts to match the given command to a string.
    */
-  protected async tryMatchingCommand(
+  public async tryMatchingCommand(
     command: ICommandDefinition<TContext, TConfigExtra>,
     str: string,
     context: TContext
