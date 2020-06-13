@@ -5,7 +5,6 @@ export interface ICommandManagerOptions<TContext> {
 
 // Parameters
 export interface IParameter<TContext> {
-  name: string;
   type: TTypeConverterFn<TContext>;
   required?: boolean;
   def?: any;
@@ -13,7 +12,7 @@ export interface IParameter<TContext> {
   catchAll?: boolean;
 }
 
-export type TSignature<TContext> = IParameter<TContext>[];
+export type TSignature<TContext> = Record<string, IParameter<TContext>>;
 
 // Arguments
 export interface IArgument<TContext> {

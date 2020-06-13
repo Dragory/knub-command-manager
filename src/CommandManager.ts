@@ -37,12 +37,6 @@ const defaultParameter: Partial<IParameter<any>> = {
   catchAll: false
 };
 
-const isArrayOfSignatures = <TContext>(
-  signatures: TSignature<TContext> | TSignature<TContext>[]
-): signatures is TSignature<TContext>[] => {
-  return Array.isArray(signatures[0]);
-};
-
 export class CommandManager<
   TContext = null,
   TConfigExtra = null,
@@ -128,12 +122,15 @@ export class CommandManager<
 
     // Like triggers and their aliases, signatures (parameter lists) are provided through both the "parameters" argument
     // and the "overloads" config value
-    const inputSignatures = isArrayOfSignatures(parameters) ? parameters : [parameters];
-    const signatures = inputSignatures.map(inputSignature => {
-      return inputSignature.map(param => ({
-        ...defaultParameter,
-        ...param
-      }));
+    const inputSignatures = Array.isArray(parameters) ? parameters : [parameters];
+    const signatures: TSignature<TContext>[] = inputSignatures.map(inputSignature => {
+      return Object.entries(inputSignature).reduce((obj, [name, param]) => {
+        obj[name] = {
+          ...defaultParameter,
+          ...param
+        };
+        return obj;
+      }, {});
     });
 
     // Validate signatures to prevent unsupported behaviour
@@ -142,7 +139,7 @@ export class CommandManager<
       let hadRest = false;
       let hadCatchAll = false;
 
-      signature.forEach(param => {
+      for (const param of Object.values(signature)) {
         if (!param.required) {
           if (hadOptional) {
             throw new Error(`Can only have 1 optional parameter to avoid ambiguity`);
@@ -168,7 +165,7 @@ export class CommandManager<
         if (param.catchAll) {
           hadCatchAll = true;
         }
-      });
+      }
     }
 
     // Actually add the command to the manager
@@ -323,9 +320,10 @@ export class CommandManager<
     if (!matchedTrigger) return null;
 
     const parsedArguments = parseArguments(str);
+    const signatures = command.signatures.length > 0 ? command.signatures : [{}];
 
-    let signatureMatchResult: TOrError<IMatchedSignature<TContext>> | null = null;
-    for (const signature of command.signatures) {
+    let signatureMatchResult: TOrError<IMatchedSignature<TContext>> = { error: "?" };
+    for (const signature of signatures) {
       signatureMatchResult = await this.tryMatchingArgumentsToSignature(
         command,
         parsedArguments,
@@ -334,10 +332,6 @@ export class CommandManager<
         context
       );
       if (!isError(signatureMatchResult)) break;
-    }
-
-    if (signatureMatchResult == null) {
-      return { error: "Command has no signatures" };
     }
 
     if (isError(signatureMatchResult)) {
@@ -360,6 +354,8 @@ export class CommandManager<
   ): Promise<TOrError<IMatchedSignature<TContext>>> {
     const args: IArgumentMap<TContext> = {};
     const opts: IMatchedOptionMap<TContext> = {};
+
+    const parameters = Object.entries(signature);
 
     let paramIndex = 0;
     for (let i = 0; i < parsedArguments.length; i++) {
@@ -411,7 +407,7 @@ export class CommandManager<
       }
 
       // Argument wasn't an option, so match it to a parameter instead
-      const param = signature[paramIndex];
+      const [paramName, param] = parameters[paramIndex] || [];
       if (!param) {
         return { error: `Too many arguments` };
       }
@@ -419,10 +415,10 @@ export class CommandManager<
       if (param.rest) {
         const restArgs = parsedArguments.slice(i);
         if (param.required && restArgs.length === 0) {
-          return { error: `Missing required argument: ${param.name}` };
+          return { error: `Missing required argument: ${paramName}` };
         }
 
-        args[param.name] = {
+        args[paramName] = {
           parameter: param,
           value: restArgs.map(a => a.value)
         };
@@ -431,7 +427,7 @@ export class CommandManager<
       }
 
       if (param.catchAll) {
-        args[param.name] = {
+        args[paramName] = {
           parameter: param,
           value: str.slice(arg.index)
         };
@@ -439,7 +435,7 @@ export class CommandManager<
         break;
       }
 
-      args[param.name] = {
+      args[paramName] = {
         parameter: param,
         value: arg.value
       };
@@ -462,13 +458,13 @@ export class CommandManager<
       }
     }
 
-    for (const param of signature) {
-      if (args[param.name] != null) continue;
+    for (const [paramName, param] of parameters) {
+      if (args[paramName] != null) continue;
       if (param.required) {
-        return { error: `Missing required argument: ${param.name}` };
+        return { error: `Missing required argument: ${paramName}` };
       }
       if (param.def) {
-        args[param.name] = {
+        args[paramName] = {
           parameter: param,
           value: param.def,
           usesDefaultValue: true
@@ -477,7 +473,7 @@ export class CommandManager<
     }
 
     // Convert types
-    for (const arg of Object.values(args)) {
+    for (const [argName, arg] of Object.entries(args)) {
       if (arg.usesDefaultValue) continue;
       try {
         if (arg.parameter.rest) {
@@ -491,7 +487,7 @@ export class CommandManager<
         }
       } catch (e) {
         if (e instanceof TypeConversionError) {
-          return { error: `Could not convert argument ${arg.parameter.name} to type ${arg.parameter.type}` };
+          return { error: `Could not convert argument ${argName}'s type: ${e.message}` };
         }
 
         throw e;

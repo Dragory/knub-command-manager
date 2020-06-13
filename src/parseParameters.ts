@@ -18,38 +18,37 @@ export function parseParameters<TContext = any>(
   str: string,
   types: Record<string, TTypeConverterFn<TContext>> = defaultParameterTypes,
   defaultType = "string"
-): IParameter<TContext>[] {
+): Record<string, IParameter<TContext>> {
   const parameterDefinitions = str.match(paramDefinitionSimpleRegex) || [];
 
-  return parameterDefinitions.map(
-    (parameterDefinition, i): IParameter<TContext> => {
-      const details = parameterDefinition.match(paramDefinitionRegex);
-      if (!details) {
-        throw new Error(`Invalid parameter definition: ${parameterDefinition}`);
-      }
-
-      let defaultValue: any = details[3];
-      const isRest = details[4] === "...";
-      const isOptional = parameterDefinition[0] === "[" || defaultValue != null;
-      const isCatchAll = details[5] === "$";
-
-      if (isRest) {
-        defaultValue = [];
-      }
-
-      const typeName = details[2] || defaultType;
-      if (types[typeName] == null) {
-        throw new Error(`Unknown parameter type: ${typeName}`);
-      }
-
-      return {
-        name: details[1],
-        type: types[typeName],
-        required: !isOptional,
-        def: defaultValue,
-        rest: isRest,
-        catchAll: isCatchAll
-      };
+  return parameterDefinitions.reduce((parameters, parameterDefinition, i) => {
+    const details = parameterDefinition.match(paramDefinitionRegex);
+    if (!details) {
+      throw new Error(`Invalid parameter definition: ${parameterDefinition}`);
     }
-  );
+
+    let defaultValue: any = details[3];
+    const isRest = details[4] === "...";
+    const isOptional = parameterDefinition[0] === "[" || defaultValue != null;
+    const isCatchAll = details[5] === "$";
+
+    if (isRest) {
+      defaultValue = [];
+    }
+
+    const typeName = details[2] || defaultType;
+    if (types[typeName] == null) {
+      throw new Error(`Unknown parameter type: ${typeName}`);
+    }
+
+    parameters[details[1]] = {
+      type: types[typeName],
+      required: !isOptional,
+      def: defaultValue,
+      rest: isRest,
+      catchAll: isCatchAll
+    };
+
+    return parameters;
+  }, {});
 }

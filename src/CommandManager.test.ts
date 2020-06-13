@@ -88,7 +88,7 @@ describe("CommandManager", () => {
       const matched = await manager.findMatchingCommand("!foo val1 val2");
 
       if (matched === null) return assert.fail();
-      if (matched.error !== undefined) return assert.fail();
+      if (matched.error !== undefined) return assert.fail(matched.error);
 
       expect(Object.keys(matched.args).length).to.equal(2);
       expect(matched.args.arg1.value).to.equal("val1");
@@ -102,7 +102,7 @@ describe("CommandManager", () => {
       const matched = await manager.findMatchingCommand("!foo 20 720");
 
       if (matched === null) return assert.fail();
-      if (matched.error !== undefined) return assert.fail();
+      if (matched.error !== undefined) return assert.fail(matched.error);
 
       expect(Object.keys(matched.args).length).to.equal(1);
       expect(matched.args.arg.value).to.eql([20, 720]);
@@ -181,7 +181,7 @@ describe("CommandManager", () => {
       const matched = await manager.findMatchingCommand("!foo /option1 optvalue1 /o2 optvalue2");
 
       if (matched === null) return assert.fail();
-      if (matched.error !== undefined) return assert.fail();
+      if (matched.error !== undefined) return assert.fail(matched.error);
 
       expect(matched.opts.option1.value).to.equal("optvalue1");
       expect(matched.opts.option2.value).to.equal("optvalue2");
@@ -206,7 +206,7 @@ describe("CommandManager", () => {
       const matched = await manager.findMatchingCommand("!foo ----option1=optvalue1");
 
       if (matched === null) return assert.fail();
-      if (matched.error !== undefined) return assert.fail();
+      if (matched.error !== undefined) return assert.fail(matched.error);
 
       expect(matched.opts.option1.value).to.equal("optvalue1");
     });
@@ -224,7 +224,7 @@ describe("CommandManager", () => {
       const matched = await manager.findMatchingCommand("!foo val1 -abc");
 
       if (matched === null) return assert.fail();
-      if (matched.error === undefined) return assert.fail();
+      if (matched.error === undefined) return assert.fail(matched.error);
     });
 
     it("Rest arguments", async () => {
@@ -234,7 +234,7 @@ describe("CommandManager", () => {
       const matched = await manager.findMatchingCommand("!foo val1 val2 val3");
 
       if (matched === null) return assert.fail();
-      if (matched.error !== undefined) return assert.fail();
+      if (matched.error !== undefined) return assert.fail(matched.error);
 
       expect(Object.keys(matched.args).length).to.equal(2);
       expect(matched.args.arg1.value).to.equal("val1");
@@ -248,7 +248,7 @@ describe("CommandManager", () => {
       const matched = await manager.findMatchingCommand("!foo val1 val2 val3");
 
       if (matched === null) return assert.fail();
-      if (matched.error !== undefined) return assert.fail();
+      if (matched.error !== undefined) return assert.fail(matched.error);
 
       expect(Object.keys(matched.args).length).to.equal(2);
       expect(matched.args.arg1.value).to.equal("val1");
@@ -262,7 +262,7 @@ describe("CommandManager", () => {
       const matched = await manager.findMatchingCommand("!foo val1");
 
       if (matched === null) return assert.fail();
-      if (matched.error !== undefined) return assert.fail();
+      if (matched.error !== undefined) return assert.fail(matched.error);
 
       expect(Object.keys(matched.args).length).to.equal(2);
       expect(matched.args.arg1.value).to.equal("val1");
@@ -274,7 +274,7 @@ describe("CommandManager", () => {
       manager.add("foo", parseParameters("<arg1> <arg2> <arg3>"));
 
       const matched = await manager.findMatchingCommand("!foo val1 \"val2 val3\" 'val4 val5'");
-      if (matched === null || matched.error !== undefined) return assert.fail();
+      if (matched === null || matched.error !== undefined) return assert.fail(matched && matched.error);
       expect(matched.args.arg1.value).to.equal("val1");
       expect(matched.args.arg2.value).to.equal("val2 val3");
       expect(matched.args.arg3.value).to.equal("val4 val5");
@@ -389,7 +389,7 @@ describe("CommandManager", () => {
       const matched = await manager.findMatchingCommand("!foo val1 504");
 
       if (matched === null) return assert.fail();
-      if (matched.error !== undefined) return assert.fail();
+      if (matched.error !== undefined) return assert.fail(matched.error);
 
       expect(Object.keys(matched.args).length).to.equal(2);
       expect(matched.args.arg1.value).to.equal("val1");
@@ -413,7 +413,7 @@ describe("CommandManager", () => {
       const matched = await manager.findMatchingCommand("!foo val1 hello");
 
       if (matched === null) return assert.fail();
-      if (matched.error !== undefined) return assert.fail();
+      if (matched.error !== undefined) return assert.fail(matched.error);
 
       expect(Object.keys(matched.args).length).to.equal(2);
       expect(matched.args.arg1.value).to.equal(5);
@@ -460,7 +460,7 @@ describe("CommandManager", () => {
 
       const matched = await manager.findMatchingCommand("!foo 50");
       if (matched === null) return assert.fail();
-      if (matched.error !== undefined) return assert.fail();
+      if (matched.error !== undefined) return assert.fail(matched.error);
       expect(Object.keys(matched.args).length).to.equal(1);
       expect(matched.args.arg.value).to.equal(50);
     });
@@ -482,7 +482,7 @@ describe("CommandManager", () => {
 
       const matched = await manager.findMatchingCommand("!foo 50 1 820");
       if (matched === null) return assert.fail();
-      if (matched.error !== undefined) return assert.fail();
+      if (matched.error !== undefined) return assert.fail(matched.error);
       expect(Object.keys(matched.args).length).to.equal(1);
       expect(matched.args.arg.value).to.eql([50, 1, 820]);
     });
@@ -548,13 +548,13 @@ describe("CommandManager", () => {
       manager.add(["foo", "bar", "baz"], parseParameters("<arg1:string> <arg2:number>"));
 
       const matched1 = await manager.findMatchingCommand("!foo val1 50");
-      if (matched1 === null || matched1.error !== undefined) return assert.fail();
+      if (matched1 === null || matched1.error !== undefined) return assert.fail(matched1 && matched1.error);
 
       const matched2 = await manager.findMatchingCommand("!bar val1 50");
-      if (matched2 === null || matched2.error !== undefined) return assert.fail();
+      if (matched2 === null || matched2.error !== undefined) return assert.fail(matched2 && matched2.error);
 
       const matched3 = await manager.findMatchingCommand("!baz val1 50");
-      if (matched3 === null || matched3.error !== undefined) return assert.fail();
+      if (matched3 === null || matched3.error !== undefined) return assert.fail(matched3 && matched3.error);
     });
 
     it("Regex trigger", async () => {
@@ -562,13 +562,13 @@ describe("CommandManager", () => {
       manager.add(/foo|bar|baz/);
 
       const matched1 = await manager.findMatchingCommand("!foo");
-      if (matched1 === null || matched1.error !== undefined) return assert.fail();
+      if (matched1 === null || matched1.error !== undefined) return assert.fail(matched1 && matched1.error);
 
       const matched2 = await manager.findMatchingCommand("!bar");
-      if (matched2 === null || matched2.error !== undefined) return assert.fail();
+      if (matched2 === null || matched2.error !== undefined) return assert.fail(matched2 && matched2.error);
 
       const matched3 = await manager.findMatchingCommand("!baz");
-      if (matched3 === null || matched3.error !== undefined) return assert.fail();
+      if (matched3 === null || matched3.error !== undefined) return assert.fail(matched3 && matched3.error);
     });
 
     it("Regex prefix", async () => {
@@ -576,13 +576,13 @@ describe("CommandManager", () => {
       manager.add("foo");
 
       const matched1 = await manager.findMatchingCommand("!foo");
-      if (matched1 === null || matched1.error !== undefined) return assert.fail();
+      if (matched1 === null || matched1.error !== undefined) return assert.fail(matched1 && matched1.error);
 
       const matched2 = await manager.findMatchingCommand("!!foo");
-      if (matched2 === null || matched2.error !== undefined) return assert.fail();
+      if (matched2 === null || matched2.error !== undefined) return assert.fail(matched2 && matched2.error);
 
       const matched3 = await manager.findMatchingCommand("!!!foo");
-      if (matched3 === null || matched3.error !== undefined) return assert.fail();
+      if (matched3 === null || matched3.error !== undefined) return assert.fail(matched3 && matched3.error);
 
       const matched4 = await manager.findMatchingCommand("foo");
       if (matched4 !== null) return assert.fail();
@@ -613,15 +613,15 @@ describe("CommandManager", () => {
       const cmd3 = manager.add("foo", parseParameters("<arg1:string> <arg2:string>"));
 
       const matched1 = await manager.findMatchingCommand("!foo val 5");
-      if (matched1 === null || matched1.error !== undefined) return assert.fail();
+      if (matched1 === null || matched1.error !== undefined) return assert.fail(matched1 && matched1.error);
       expect(matched1.id).to.equal(cmd1.id);
 
       const matched2 = await manager.findMatchingCommand("!foo 5 val2");
-      if (matched2 === null || matched2.error !== undefined) return assert.fail();
+      if (matched2 === null || matched2.error !== undefined) return assert.fail(matched2 && matched2.error);
       expect(matched2.id).to.equal(cmd2.id);
 
       const matched3 = await manager.findMatchingCommand("!foo val1 val2");
-      if (matched3 === null || matched3.error !== undefined) return assert.fail();
+      if (matched3 === null || matched3.error !== undefined) return assert.fail(matched3 && matched3.error);
       expect(matched3.id).to.equal(cmd3.id);
     });
 
@@ -653,7 +653,7 @@ describe("CommandManager", () => {
       manager.add("suspend");
 
       const matched1 = await manager.findMatchingCommand("!suspend");
-      if (matched1 === null || matched1.error !== undefined) return assert.fail();
+      if (matched1 === null || matched1.error !== undefined) return assert.fail(matched1 && matched1.error);
 
       const matched2 = await manager.findMatchingCommand("!suspendo");
       if (matched2 !== null) return assert.fail();
