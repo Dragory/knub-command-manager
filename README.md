@@ -35,13 +35,13 @@ framework, but can also be used as standalone.
 ## Basic usage
 
 ```js
-import { CommandManager } from 'knub-command-manager';
+import { CommandManager, parseParameters as p } from 'knub-command-manager';
 
 const manager = new CommandManager({
   prefix: '!'
 });
 
-const registeredCommand = manager.add('echo', '<text:string>');
+const registeredCommand = manager.add('echo', p('<text:string>'));
 
 const matchedCommand = manager.findMatchingCommand('!echo hello');
 ```
