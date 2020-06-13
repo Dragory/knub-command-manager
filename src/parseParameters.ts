@@ -1,5 +1,5 @@
 import { IParameter, TTypeConverterFn } from "./types";
-import { defaultParameterTypes } from "./defaultParameterTypes";
+import { defaultTypeConverters } from "./defaultTypes";
 
 const paramDefinitionSimpleRegex = /[<\[].*?[>\]]/g;
 
@@ -16,7 +16,7 @@ const paramDefinitionRegex = new RegExp(
 
 export function parseParameters<TContext = any>(
   str: string,
-  types: Record<string, TTypeConverterFn<TContext>> = defaultParameterTypes,
+  types: Record<string, TTypeConverterFn<TContext>> = defaultTypeConverters,
   defaultType = "string"
 ): Record<string, IParameter<TContext>> {
   const parameterDefinitions = str.match(paramDefinitionSimpleRegex) || [];

@@ -1,8 +1,8 @@
 import { expect, assert } from "chai";
 import { CommandManager } from "./CommandManager";
-import { ICommandConfig, isError, IMatchedCommand } from "./types";
+import { ICommandConfig, isError, IMatchedCommand, findMatchingCommandResultHasError } from "./types";
 import { parseParameters } from "./parseParameters";
-import { defaultParameterTypes } from "./defaultParameterTypes";
+import { bool, defaultTypeConverters, number, string } from "./defaultTypes";
 
 describe("CommandManager", () => {
   describe("Parameter validation", () => {
@@ -112,10 +112,10 @@ describe("CommandManager", () => {
       const manager = new CommandManager({ prefix: "!" });
       manager.add("foo", parseParameters("<arg1>"), {
         options: [
-          { name: "option1", shortcut: "o", type: defaultParameterTypes.string },
-          { name: "option2", shortcut: "p", type: defaultParameterTypes.string },
-          { name: "option3", shortcut: "t", type: defaultParameterTypes.string },
-          { name: "option4", shortcut: "i", type: defaultParameterTypes.string },
+          { name: "option1", shortcut: "o", type: defaultTypeConverters.string },
+          { name: "option2", shortcut: "p", type: defaultTypeConverters.string },
+          { name: "option3", shortcut: "t", type: defaultTypeConverters.string },
+          { name: "option4", shortcut: "i", type: defaultTypeConverters.string },
           { name: "switch1", shortcut: "f", isSwitch: true },
           { name: "switch2", shortcut: "a", isSwitch: true }
         ]
@@ -141,10 +141,10 @@ describe("CommandManager", () => {
       const manager = new CommandManager({ prefix: "!" });
       manager.add("foo", parseParameters("<arg1>"), {
         options: [
-          { name: "option1", shortcut: "o", type: defaultParameterTypes.string },
-          { name: "option2", shortcut: "p", type: defaultParameterTypes.string },
-          { name: "option3", shortcut: "t", type: defaultParameterTypes.string },
-          { name: "option4", shortcut: "i", type: defaultParameterTypes.string },
+          { name: "option1", shortcut: "o", type: defaultTypeConverters.string },
+          { name: "option2", shortcut: "p", type: defaultTypeConverters.string },
+          { name: "option3", shortcut: "t", type: defaultTypeConverters.string },
+          { name: "option4", shortcut: "i", type: defaultTypeConverters.string },
           { name: "switch1", shortcut: "f", isSwitch: true },
           { name: "switch2", shortcut: "a", isSwitch: true }
         ]
@@ -173,8 +173,8 @@ describe("CommandManager", () => {
       });
       manager.add("foo", [], {
         options: [
-          { name: "option1", shortcut: "o", type: defaultParameterTypes.string },
-          { name: "option2", shortcut: "o2", type: defaultParameterTypes.string }
+          { name: "option1", shortcut: "o", type: defaultTypeConverters.string },
+          { name: "option2", shortcut: "o2", type: defaultTypeConverters.string }
         ]
       });
 
@@ -200,7 +200,7 @@ describe("CommandManager", () => {
         optionPrefixes: ["-", "----"]
       });
       manager.add("foo", [], {
-        options: [{ name: "option1", shortcut: "o", type: defaultParameterTypes.string }]
+        options: [{ name: "option1", shortcut: "o", type: defaultTypeConverters.string }]
       });
 
       const matched = await manager.findMatchingCommand("!foo ----option1=optvalue1");
@@ -311,10 +311,10 @@ describe("CommandManager", () => {
     it("Match option at the start of a catch-all/rest", async () => {
       const manager = new CommandManager({ prefix: "!" });
       manager.add("foo", parseParameters("<arg$>"), {
-        options: [{ name: "opt", type: defaultParameterTypes.string }]
+        options: [{ name: "opt", type: defaultTypeConverters.string }]
       });
       manager.add("bar", parseParameters("<arg...>"), {
-        options: [{ name: "opt", type: defaultParameterTypes.string }]
+        options: [{ name: "opt", type: defaultTypeConverters.string }]
       });
 
       const matched1 = await manager.findMatchingCommand("!foo --opt=val blah blah");
@@ -331,7 +331,7 @@ describe("CommandManager", () => {
     it("Don't match options in quotes", async () => {
       const manager = new CommandManager({ prefix: "!" });
       manager.add("foo", parseParameters("[arg]"), {
-        options: [{ name: "opt", type: defaultParameterTypes.string }]
+        options: [{ name: "opt", type: defaultTypeConverters.string }]
       });
 
       const matched1 = await manager.findMatchingCommand("!foo --opt=val");
@@ -369,7 +369,7 @@ describe("CommandManager", () => {
         options: [
           {
             name: "opt",
-            type: defaultParameterTypes.string
+            type: defaultTypeConverters.string
           }
         ]
       });
@@ -764,6 +764,17 @@ describe("CommandManager", () => {
       if (matchedCommand.error != null) return assert.fail(matchedCommand.error);
       expect(matchedCommand.originalPrefix).to.equal("!");
       expect((matchedCommand.prefix as RegExp).source).to.equal("^!");
+    });
+
+    it("Type helpers", async () => {
+      const manager = new CommandManager({ prefix: "!" });
+      manager.add("foo", {
+        str: string(),
+        num: number()
+      });
+
+      const matched = await manager.findMatchingCommand("!foo bar 50");
+      if (matched == null || findMatchingCommandResultHasError(matched)) assert.fail(matched && matched.error);
     });
   });
 });

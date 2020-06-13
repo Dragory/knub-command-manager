@@ -22,7 +22,7 @@ import {
   IMatchedOption,
   isSwitchOption
 } from "./types";
-import { defaultParameterTypes } from "./defaultParameterTypes";
+import { defaultTypeConverters } from "./defaultTypes";
 import { parseArguments, TParsedArguments } from "./parseArguments";
 import { TypeConversionError } from "./TypeConversionError";
 import { parseParameters } from "./parseParameters";
@@ -81,7 +81,7 @@ export class CommandManager<
    *   Adds a command called "add" with two required parameters. This is equivalent to the first example.
    *   The string() and number() helpers are provided by the package.
    *
-   * `add("echo", [{name: "text", type: v => String(v), catchAll: true}])`
+   * `add("echo", { text: { type: v => String(v), catchAll: true } })`
    *   Adds a command with a required argument "text" that captures the entire rest of the arguments.
    *   The parameter object here is defined explicitly rather than using one of the helpers above.
    *
