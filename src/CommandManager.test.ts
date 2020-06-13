@@ -1,6 +1,8 @@
 import { expect, assert } from "chai";
 import { CommandManager } from "./CommandManager";
 import { ICommandConfig, isError, IMatchedCommand } from "./types";
+import { parseParameters } from "./parseParameters";
+import { defaultParameterTypes } from "./defaultParameterTypes";
 
 describe("CommandManager", () => {
   describe("Parameter validation", () => {
@@ -8,7 +10,7 @@ describe("CommandManager", () => {
       const manager = new CommandManager({ prefix: "!" });
 
       try {
-        manager.add("foo", "<arg1...> <arg2...>");
+        manager.add("foo", parseParameters("<arg1...> <arg2...>"));
       } catch (e) {
         return;
       }
@@ -20,7 +22,7 @@ describe("CommandManager", () => {
       const manager = new CommandManager({ prefix: "!" });
 
       try {
-        manager.add("foo", "<arg1$> <arg2$>");
+        manager.add("foo", parseParameters("<arg1$> <arg2$>"));
       } catch (e) {
         return;
       }
@@ -32,7 +34,7 @@ describe("CommandManager", () => {
       const manager = new CommandManager({ prefix: "!" });
 
       try {
-        manager.add("foo", "<arg1...> <arg2$>");
+        manager.add("foo", parseParameters("<arg1...> <arg2$>"));
       } catch (e) {
         return;
       }
@@ -44,7 +46,7 @@ describe("CommandManager", () => {
       const manager = new CommandManager({ prefix: "!" });
 
       try {
-        manager.add("foo", "[arg1] [arg2]");
+        manager.add("foo", parseParameters("[arg1] [arg2]"));
       } catch (e) {
         return;
       }
@@ -56,7 +58,7 @@ describe("CommandManager", () => {
       const manager = new CommandManager({ prefix: "!" });
 
       try {
-        manager.add("foo", "[arg1] <arg2>");
+        manager.add("foo", parseParameters("[arg1] <arg2>"));
       } catch (e) {
         return;
       }
@@ -68,10 +70,8 @@ describe("CommandManager", () => {
       const manager = new CommandManager({ prefix: "!" });
 
       try {
-        // The initial parameters are valid, but the overload has an invalid type
-        manager.add("foo", "<bar:string>", {
-          overloads: ["<bar:unknownType>"]
-        });
+        // The first set of parameters is valid, but the second overload has an invalid type
+        manager.add("foo", [parseParameters("<bar:string>"), parseParameters("<bar:unknownType>")]);
       } catch (e) {
         return;
       }
@@ -83,7 +83,7 @@ describe("CommandManager", () => {
   describe("Argument parsing", () => {
     it("Simple arguments", async () => {
       const manager = new CommandManager({ prefix: "!" });
-      manager.add("foo", "<arg1> <arg2>");
+      manager.add("foo", parseParameters("<arg1> <arg2>"));
 
       const matched = await manager.findMatchingCommand("!foo val1 val2");
 
@@ -97,7 +97,7 @@ describe("CommandManager", () => {
 
     it("Rest arguments", async () => {
       const manager = new CommandManager({ prefix: "!" });
-      manager.add("foo", "<arg:number...>");
+      manager.add("foo", parseParameters("<arg:number...>"));
 
       const matched = await manager.findMatchingCommand("!foo 20 720");
 
@@ -110,12 +110,12 @@ describe("CommandManager", () => {
 
     it("Options (default prefixes)", async () => {
       const manager = new CommandManager({ prefix: "!" });
-      manager.add("foo", "<arg1>", {
+      manager.add("foo", parseParameters("<arg1>"), {
         options: [
-          { name: "option1", shortcut: "o" },
-          { name: "option2", shortcut: "p" },
-          { name: "option3", shortcut: "t" },
-          { name: "option4", shortcut: "i" },
+          { name: "option1", shortcut: "o", type: defaultParameterTypes.string },
+          { name: "option2", shortcut: "p", type: defaultParameterTypes.string },
+          { name: "option3", shortcut: "t", type: defaultParameterTypes.string },
+          { name: "option4", shortcut: "i", type: defaultParameterTypes.string },
           { name: "switch1", shortcut: "f", isSwitch: true },
           { name: "switch2", shortcut: "a", isSwitch: true }
         ]
@@ -139,12 +139,12 @@ describe("CommandManager", () => {
 
     it("- and -- are interchangeable for options/option shortcuts", async () => {
       const manager = new CommandManager({ prefix: "!" });
-      manager.add("foo", "<arg1>", {
+      manager.add("foo", parseParameters("<arg1>"), {
         options: [
-          { name: "option1", shortcut: "o" },
-          { name: "option2", shortcut: "p" },
-          { name: "option3", shortcut: "t" },
-          { name: "option4", shortcut: "i" },
+          { name: "option1", shortcut: "o", type: defaultParameterTypes.string },
+          { name: "option2", shortcut: "p", type: defaultParameterTypes.string },
+          { name: "option3", shortcut: "t", type: defaultParameterTypes.string },
+          { name: "option4", shortcut: "i", type: defaultParameterTypes.string },
           { name: "switch1", shortcut: "f", isSwitch: true },
           { name: "switch2", shortcut: "a", isSwitch: true }
         ]
@@ -171,8 +171,11 @@ describe("CommandManager", () => {
         prefix: "!",
         optionPrefixes: ["/"]
       });
-      manager.add("foo", "", {
-        options: [{ name: "option1", shortcut: "o" }, { name: "option2", shortcut: "o2" }]
+      manager.add("foo", [], {
+        options: [
+          { name: "option1", shortcut: "o", type: defaultParameterTypes.string },
+          { name: "option2", shortcut: "o2", type: defaultParameterTypes.string }
+        ]
       });
 
       const matched = await manager.findMatchingCommand("!foo /option1 optvalue1 /o2 optvalue2");
@@ -196,8 +199,8 @@ describe("CommandManager", () => {
         prefix: "!",
         optionPrefixes: ["-", "----"]
       });
-      manager.add("foo", "", {
-        options: [{ name: "option1", shortcut: "o" }]
+      manager.add("foo", [], {
+        options: [{ name: "option1", shortcut: "o", type: defaultParameterTypes.string }]
       });
 
       const matched = await manager.findMatchingCommand("!foo ----option1=optvalue1");
@@ -210,7 +213,7 @@ describe("CommandManager", () => {
 
     it("[DEPRECATION] Do not support combined option shortcuts (-abcd)", async () => {
       const manager = new CommandManager({ prefix: "!" });
-      manager.add("foo", "<arg1>", {
+      manager.add("foo", parseParameters("<arg1>"), {
         options: [
           { name: "switch1", shortcut: "a", isSwitch: true },
           { name: "switch2", shortcut: "b", isSwitch: true },
@@ -226,7 +229,7 @@ describe("CommandManager", () => {
 
     it("Rest arguments", async () => {
       const manager = new CommandManager({ prefix: "!" });
-      manager.add("foo", "<arg1> <arg2...>");
+      manager.add("foo", parseParameters("<arg1> <arg2...>"));
 
       const matched = await manager.findMatchingCommand("!foo val1 val2 val3");
 
@@ -240,7 +243,7 @@ describe("CommandManager", () => {
 
     it("Catch-all arguments", async () => {
       const manager = new CommandManager({ prefix: "!" });
-      manager.add("foo", "<arg1> <arg2$>");
+      manager.add("foo", parseParameters("<arg1> <arg2$>"));
 
       const matched = await manager.findMatchingCommand("!foo val1 val2 val3");
 
@@ -254,7 +257,7 @@ describe("CommandManager", () => {
 
     it("Default values", async () => {
       const manager = new CommandManager({ prefix: "!" });
-      manager.add("foo", "<arg1> [arg2=val2]");
+      manager.add("foo", parseParameters("<arg1> [arg2=val2]"));
 
       const matched = await manager.findMatchingCommand("!foo val1");
 
@@ -268,7 +271,7 @@ describe("CommandManager", () => {
 
     it("Quoted arguments", async () => {
       const manager = new CommandManager({ prefix: "!" });
-      manager.add("foo", "<arg1> <arg2> <arg3>");
+      manager.add("foo", parseParameters("<arg1> <arg2> <arg3>"));
 
       const matched = await manager.findMatchingCommand("!foo val1 \"val2 val3\" 'val4 val5'");
       if (matched === null || matched.error !== undefined) return assert.fail();
@@ -279,7 +282,7 @@ describe("CommandManager", () => {
 
     it("Deny too many arguments", async () => {
       const manager = new CommandManager({ prefix: "!" });
-      manager.add("foo", "<arg1> ");
+      manager.add("foo", parseParameters("<arg1>"));
 
       const matched = await manager.findMatchingCommand("!foo val1 val2");
       if (matched === null || !matched.error) return assert.fail();
@@ -295,8 +298,8 @@ describe("CommandManager", () => {
 
     it("Ignore options within catch-all/rest", async () => {
       const manager = new CommandManager({ prefix: "!" });
-      manager.add("foo", "<arg$>");
-      manager.add("bar", "<arg...>");
+      manager.add("foo", parseParameters("<arg$>"));
+      manager.add("bar", parseParameters("<arg...>"));
 
       const matched1 = await manager.findMatchingCommand("!foo blah blah --unknown=val blah");
       if (matched1 === null || matched1.error) return assert.fail();
@@ -307,11 +310,11 @@ describe("CommandManager", () => {
 
     it("Match option at the start of a catch-all/rest", async () => {
       const manager = new CommandManager({ prefix: "!" });
-      manager.add("foo", "<arg$>", {
-        options: [{ name: "opt" }]
+      manager.add("foo", parseParameters("<arg$>"), {
+        options: [{ name: "opt", type: defaultParameterTypes.string }]
       });
-      manager.add("bar", "<arg...>", {
-        options: [{ name: "opt" }]
+      manager.add("bar", parseParameters("<arg...>"), {
+        options: [{ name: "opt", type: defaultParameterTypes.string }]
       });
 
       const matched1 = await manager.findMatchingCommand("!foo --opt=val blah blah");
@@ -327,8 +330,8 @@ describe("CommandManager", () => {
 
     it("Don't match options in quotes", async () => {
       const manager = new CommandManager({ prefix: "!" });
-      manager.add("foo", "[arg]", {
-        options: [{ name: "opt" }]
+      manager.add("foo", parseParameters("[arg]"), {
+        options: [{ name: "opt", type: defaultParameterTypes.string }]
       });
 
       const matched1 = await manager.findMatchingCommand("!foo --opt=val");
@@ -344,7 +347,7 @@ describe("CommandManager", () => {
 
     it("[DEPRECATION] No longer support ending parameter parsing with -- and treating everything afterwards as if it was quoted", async () => {
       const manager = new CommandManager({ prefix: "!" });
-      manager.add("foo", "<arg>");
+      manager.add("foo", parseParameters("<arg>"));
 
       const matched1 = await manager.findMatchingCommand("!foo -- this will be in arg");
       if (matched1 === null) return assert.fail();
@@ -353,7 +356,7 @@ describe("CommandManager", () => {
 
     it("Should not include leading spaces in a first argument catch-all", async () => {
       const manager = new CommandManager({ prefix: "!" });
-      manager.add("foo", "<arg$>");
+      manager.add("foo", parseParameters("<arg$>"));
 
       const matched1 = await manager.findMatchingCommand("!foo test");
       if (matched1 === null || matched1.error !== undefined) return assert.fail();
@@ -362,11 +365,11 @@ describe("CommandManager", () => {
 
     it("[EDGE CASE] Should not interpret options with quotes as arguments", async () => {
       const manager = new CommandManager({ prefix: "!" });
-      manager.add("foo", "<arg$>", {
+      manager.add("foo", parseParameters("<arg$>"), {
         options: [
           {
             name: "opt",
-            type: "string"
+            type: defaultParameterTypes.string
           }
         ]
       });
@@ -381,7 +384,7 @@ describe("CommandManager", () => {
   describe("Argument/option types", () => {
     it("Default types", async () => {
       const manager = new CommandManager({ prefix: "!" });
-      manager.add("foo", "<arg1:string> <arg2:number>");
+      manager.add("foo", parseParameters("<arg1:string> <arg2:number>"));
 
       const matched = await manager.findMatchingCommand("!foo val1 504");
 
@@ -394,19 +397,18 @@ describe("CommandManager", () => {
     });
 
     it("Custom types", async () => {
-      const manager = new CommandManager({
-        prefix: "!",
-        types: {
-          static(value) {
-            return 5;
-          },
-          reversed(value) {
-            return [...value].reverse().join("");
-          }
+      const types = {
+        static(value) {
+          return 5;
         },
-        defaultType: "static"
+        reversed(value) {
+          return [...value].reverse().join("");
+        }
+      };
+      const manager = new CommandManager({
+        prefix: "!"
       });
-      manager.add("foo", "<arg1:static> <arg2:reversed>");
+      manager.add("foo", parseParameters("<arg1:static> <arg2:reversed>", types));
 
       const matched = await manager.findMatchingCommand("!foo val1 hello");
 
@@ -419,16 +421,16 @@ describe("CommandManager", () => {
     });
 
     it("Custom types with context", async () => {
+      const types = {
+        custom(value, context) {
+          return context.num;
+        }
+      };
+
       const manager = new CommandManager<{ num: number }>({
-        prefix: "!",
-        types: {
-          custom(value, context) {
-            return context.num;
-          }
-        },
-        defaultType: "custom"
+        prefix: "!"
       });
-      manager.add("foo", "<arg1:custom>");
+      manager.add("foo", parseParameters("<arg1:custom>", types, "custom"));
 
       const matched1 = await manager.findMatchingCommand("!foo thisdoesntmatter", { num: 5 });
       if (matched1 === null) return assert.fail();
@@ -442,20 +444,19 @@ describe("CommandManager", () => {
     });
 
     it("Async types", async () => {
+      const types = {
+        asyncNumber(value) {
+          return new Promise(resolve => {
+            setTimeout(() => {
+              resolve(Number(value));
+            }, 10);
+          });
+        }
+      };
       const manager = new CommandManager({
-        prefix: "!",
-        types: {
-          asyncNumber(value) {
-            return new Promise(resolve => {
-              setTimeout(() => {
-                resolve(Number(value));
-              }, 10);
-            });
-          }
-        },
-        defaultType: "asyncNumber"
+        prefix: "!"
       });
-      manager.add("foo", "<arg:asyncNumber>");
+      manager.add("foo", parseParameters("<arg:asyncNumber>", types));
 
       const matched = await manager.findMatchingCommand("!foo 50");
       if (matched === null) return assert.fail();
@@ -465,20 +466,19 @@ describe("CommandManager", () => {
     });
 
     it("Async type for rest argument", async () => {
+      const types = {
+        asyncNumber(value) {
+          return new Promise(resolve => {
+            setTimeout(() => {
+              resolve(Number(value));
+            }, 10);
+          });
+        }
+      };
       const manager = new CommandManager({
-        prefix: "!",
-        types: {
-          asyncNumber(value) {
-            return new Promise(resolve => {
-              setTimeout(() => {
-                resolve(Number(value));
-              }, 10);
-            });
-          }
-        },
-        defaultType: "asyncNumber"
+        prefix: "!"
       });
-      manager.add("foo", "<arg:asyncNumber...>");
+      manager.add("foo", parseParameters("<arg:asyncNumber...>", types));
 
       const matched = await manager.findMatchingCommand("!foo 50 1 820");
       if (matched === null) return assert.fail();
@@ -491,9 +491,9 @@ describe("CommandManager", () => {
       // Default type ("string") should not be found in the empty types object
       try {
         const manager = new CommandManager({
-          prefix: "!",
-          types: {}
+          prefix: "!"
         });
+        manager.add("foo", parseParameters("<foo>", {}));
       } catch (e) {
         return;
       }
@@ -530,7 +530,7 @@ describe("CommandManager", () => {
 
       const filter = matchedCommand => matchedCommand.args.arg1.value === "foo";
 
-      manager.add("foo", "<arg1>", {
+      manager.add("foo", parseParameters("<arg1>"), {
         postFilters: [filter]
       });
 
@@ -545,9 +545,7 @@ describe("CommandManager", () => {
   describe("Misc", () => {
     it("Aliases", async () => {
       const manager = new CommandManager({ prefix: "!" });
-      manager.add("foo", "<arg1:string> <arg2:number>", {
-        aliases: ["bar", "baz"]
-      });
+      manager.add(["foo", "bar", "baz"], parseParameters("<arg1:string> <arg2:number>"));
 
       const matched1 = await manager.findMatchingCommand("!foo val1 50");
       if (matched1 === null || matched1.error !== undefined) return assert.fail();
@@ -610,9 +608,9 @@ describe("CommandManager", () => {
 
     it("Should pick the first fitting signature", async () => {
       const manager = new CommandManager({ prefix: "!" });
-      const cmd1 = manager.add("foo", "<arg1:string> <arg2:number>");
-      const cmd2 = manager.add("foo", "<arg1:number> <arg2:string>");
-      const cmd3 = manager.add("foo", "<arg1:string> <arg2:string>");
+      const cmd1 = manager.add("foo", parseParameters("<arg1:string> <arg2:number>"));
+      const cmd2 = manager.add("foo", parseParameters("<arg1:number> <arg2:string>"));
+      const cmd3 = manager.add("foo", parseParameters("<arg1:string> <arg2:string>"));
 
       const matched1 = await manager.findMatchingCommand("!foo val 5");
       if (matched1 === null || matched1.error !== undefined) return assert.fail();
@@ -629,9 +627,9 @@ describe("CommandManager", () => {
 
     it("Should increment command IDs", async () => {
       const manager = new CommandManager({ prefix: "!" });
-      const cmd1 = manager.add("foo", "<arg1:string> <arg2:number>");
-      const cmd2 = manager.add("foo", "<arg1:number> <arg2:string>");
-      const cmd3 = manager.add("foo", "<arg1:string> <arg2:string>");
+      const cmd1 = manager.add("foo", parseParameters("<arg1:string> <arg2:number>"));
+      const cmd2 = manager.add("foo", parseParameters("<arg1:number> <arg2:string>"));
+      const cmd3 = manager.add("foo", parseParameters("<arg1:string> <arg2:string>"));
 
       expect(cmd1.id).to.equal(1);
       expect(cmd2.id).to.equal(2);
@@ -651,7 +649,7 @@ describe("CommandManager", () => {
 
     it("Should only match triggers followed by whitespace or end of string", async () => {
       const manager = new CommandManager({ prefix: "!" });
-      manager.add("s", "<arg>");
+      manager.add("s", parseParameters("<arg>"));
       manager.add("suspend");
 
       const matched1 = await manager.findMatchingCommand("!suspend");
@@ -664,9 +662,9 @@ describe("CommandManager", () => {
     it("Should pass command config to command definition", async () => {
       const manager = new CommandManager({ prefix: "!" });
       const command = manager.add("foo", [], {
-        aliases: ["bar"]
+        extra: null
       });
-      expect(command.config).to.eql({ aliases: ["bar"] });
+      expect(command.config).to.eql({ extra: null });
     });
 
     it("Should support TConfigExtra types", async () => {
@@ -690,12 +688,12 @@ describe("CommandManager", () => {
 
     it("Should return the relevant command with match errors", async () => {
       const manager = new CommandManager<null, { num: number }>({ prefix: "!" });
-      manager.add("foo", "<bar:number>", {
+      manager.add("foo", parseParameters("<bar:number>"), {
         extra: {
           num: 1
         }
       });
-      manager.add("foo", "<bar:number>", {
+      manager.add("foo", parseParameters("<bar:number>"), {
         extra: {
           num: 2
         }
@@ -728,9 +726,7 @@ describe("CommandManager", () => {
 
     it("Match correct overload/signature", async () => {
       const manager = new CommandManager({ prefix: "!" });
-      manager.add("foo", "<bar:number>", {
-        overloads: ["<baz:string>"]
-      });
+      manager.add("foo", [parseParameters("<bar:number>"), parseParameters("<baz:string>")]);
 
       const matched1 = await manager.findMatchingCommand("!foo 10");
       if (!matched1 || manager.findMatchingCommandResultHasError(matched1)) return assert.fail();
@@ -755,9 +751,9 @@ describe("CommandManager", () => {
       expect((manager.getDefaultPrefix() as RegExp).source).to.equal("^!");
       expect(manager.getOriginalDefaultPrefix()).to.equal(originalStringPrefix);
 
-      const originalRegExpPrefix = /(?:a|b)/;
+      const originalRegExpPrefix = /[ab]/;
       const manager2 = new CommandManager({ prefix: originalRegExpPrefix });
-      expect((manager2.getDefaultPrefix() as RegExp).source).to.equal("^(?:a|b)");
+      expect((manager2.getDefaultPrefix() as RegExp).source).to.equal("^[ab]");
       expect(manager2.getOriginalDefaultPrefix()).to.equal(originalRegExpPrefix);
 
       const manager3 = new CommandManager({ prefix: originalStringPrefix });

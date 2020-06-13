@@ -1,52 +1,54 @@
 export interface ICommandManagerOptions<TContext> {
   prefix?: RegExp | string;
-  types?: { [key: string]: TTypeConverterFn<TContext> };
-  defaultType?: string;
   optionPrefixes?: string[];
 }
 
 // Parameters
-export interface IParameter {
+export interface IParameter<TContext> {
   name: string;
-  type: string;
+  type: TTypeConverterFn<TContext>;
   required?: boolean;
   def?: any;
   rest?: boolean;
   catchAll?: boolean;
 }
 
-export type TSignature = IParameter[];
-export type TParseableSignature = string | TSignature;
+export type TSignature<TContext> = IParameter<TContext>[];
 
 // Arguments
-export interface IArgument {
-  parameter: IParameter;
+export interface IArgument<TContext> {
+  parameter: IParameter<TContext>;
   value: any;
   usesDefaultValue?: true;
 }
 
-export interface IArgumentMap {
-  [name: string]: IArgument;
+export interface IArgumentMap<TContext> {
+  [name: string]: IArgument<TContext>;
 }
 
 // Options
 export type TBaseOption = { name: string; shortcut?: string };
-export type TOptionWithValue = TBaseOption & { type?: string; required?: boolean; def?: any; isSwitch?: false };
+export type TOptionWithValue<TContext> = TBaseOption & {
+  type: TTypeConverterFn<TContext>;
+  required?: boolean;
+  def?: any;
+  isSwitch?: false;
+};
 export type TSwitchOption = TBaseOption & { isSwitch: true };
-export type TOption = TOptionWithValue | TSwitchOption;
+export type TOption<TContext> = TOptionWithValue<TContext> | TSwitchOption;
 
-export function isSwitchOption(option: TOption): option is TSwitchOption {
+export function isSwitchOption(option: TOption<any>): option is TSwitchOption {
   return option.isSwitch === true;
 }
 
-export interface IMatchedOption {
-  option: TOption;
+export interface IMatchedOption<TContext> {
+  option: TOption<TContext>;
   value: any;
   usesDefaultValue?: true;
 }
 
-export interface IMatchedOptionMap {
-  [name: string]: IMatchedOption;
+export interface IMatchedOptionMap<TContext> {
+  [name: string]: IMatchedOption<TContext>;
 }
 
 // Commands
@@ -61,9 +63,7 @@ export type TPostFilterFn<TContext, TExtra> = (
 
 export interface ICommandConfig<TContext, TExtra> {
   prefix?: string | RegExp;
-  options?: TOption[];
-  aliases?: string[];
-  overloads?: TParseableSignature[];
+  options?: TOption<TContext>[];
   preFilters?: TPreFilterFn<TContext, TExtra>[];
   postFilters?: TPostFilterFn<TContext, TExtra>[];
   extra?: TExtra;
@@ -75,8 +75,8 @@ export interface ICommandDefinition<TContext, TExtra> {
   originalPrefix: string | RegExp | null;
   triggers: RegExp[];
   originalTriggers: Array<string | RegExp>;
-  signatures: TSignature[];
-  options: TOption[];
+  signatures: TSignature<TContext>[];
+  options: TOption<TContext>[];
   preFilters: TPreFilterFn<TContext, TExtra>[];
   postFilters: TPostFilterFn<TContext, TExtra>[];
   config: ICommandConfig<TContext, TExtra> | null;
@@ -94,14 +94,14 @@ export interface ITryMatchingCommandResult<TContext, TExtra> {
   command: IMatchedCommand<TContext, TExtra>;
 }
 
-export interface ITryMatchingArgumentsToSignatureResult {
-  args: IArgumentMap;
-  opts: IMatchedOptionMap;
+export interface IMatchedSignature<TContext> {
+  args: IArgumentMap<TContext>;
+  opts: IMatchedOptionMap<TContext>;
 }
 
 export interface IMatchedCommand<TContext, TExtra> extends ICommandDefinition<TContext, TExtra> {
-  args: IArgumentMap;
-  opts: IMatchedOptionMap;
+  args: IArgumentMap<TContext>;
+  opts: IMatchedOptionMap<TContext>;
   error?: never;
 }
 

@@ -13,14 +13,14 @@ import {
   TOptionWithValue,
   IParameter,
   TTypeConverterFn,
-  ITryMatchingArgumentsToSignatureResult,
+  IMatchedSignature,
   isError,
   TOrError,
   TFindMatchingCommandResult,
   findMatchingCommandResultHasError,
-  TParseableSignature,
   TSignature,
-  IMatchedOption
+  IMatchedOption,
+  isSwitchOption
 } from "./types";
 import { defaultParameterTypes } from "./defaultParameterTypes";
 import { parseArguments, TParsedArguments } from "./parseArguments";
@@ -30,11 +30,17 @@ import { parseParameters } from "./parseParameters";
 const optMatchRegex = /^(\S*?)(?:=(.+))?$/;
 const defaultOptionPrefixes = ["-", "--"];
 
-const defaultParameter: Partial<IParameter> = {
+const defaultParameter: Partial<IParameter<any>> = {
   required: true,
   def: null,
   rest: false,
   catchAll: false
+};
+
+const isArrayOfSignatures = <TContext>(
+  signatures: TSignature<TContext> | TSignature<TContext>[]
+): signatures is TSignature<TContext>[] => {
+  return Array.isArray(signatures[0]);
 };
 
 export class CommandManager<
@@ -46,8 +52,6 @@ export class CommandManager<
 
   protected defaultPrefix: RegExp | null = null;
   protected originalDefaultPrefix: string | RegExp | null = null;
-  protected types: { [key: string]: TTypeConverterFn<TContext> };
-  protected defaultType: string;
   protected optionPrefixes: string[];
 
   protected commandId = 0;
@@ -59,8 +63,6 @@ export class CommandManager<
       this.defaultPrefix = new RegExp(`^${prefix.source}`, prefix.flags);
     }
 
-    this.types = opts.types || defaultParameterTypes;
-    this.defaultType = opts.defaultType || "string";
     this.optionPrefixes = Array.from(opts.optionPrefixes || defaultOptionPrefixes);
 
     // Sort the prefixes descending by length so that if a longer prefix includes a shorter one at the start,
@@ -70,10 +72,6 @@ export class CommandManager<
       if (a.length < b.length) return 1;
       return 0;
     });
-
-    if (!this.types[this.defaultType]) {
-      throw new Error(`Default type "${this.defaultType}" not found in types!`);
-    }
   }
 
   /**
@@ -81,20 +79,24 @@ export class CommandManager<
    *
    * Examples:
    *
-   * add("add", "<first:number> <second:number>")
-   *   Adds a command called "add" with two required arguments.
-   *   These arguments are added in an easily-readable string format.
+   * `add("add", parseParameters("<first:string> <second:number>"))`
+   *   Adds a command called "add" with two required parameters.
+   *   This example uses an easy-to-read string format for specifying parameters, parsed by parseParameters().
    *
-   * add("echo", [{name: "text", type: "string", catchAll: true}])
+   * `add("add", { first: string(), second: number() })`
+   *   Adds a command called "add" with two required parameters. This is equivalent to the first example.
+   *   The string() and number() helpers are provided by the package.
+   *
+   * `add("echo", [{name: "text", type: v => String(v), catchAll: true}])`
    *   Adds a command with a required argument "text" that captures the entire rest of the arguments.
-   *   These arguments are added in a more programmable, array of objects format.
+   *   The parameter object here is defined explicitly rather than using one of the helpers above.
    *
-   * add("mul", "<numbers:number...>")
-   *   Adds a command with a required, repeatable argument "numbers".
+   * `add("mul", parseParameters("<name:string> [numbers:number...]"))`
+   *   Adds a command with two arguments: a required string called 'name' and an optional repeatable argument "numbers".
    */
   public add(
-    trigger: string | RegExp,
-    parameters: TParseableSignature = [],
+    trigger: string | RegExp | string[] | RegExp[],
+    parameters: TSignature<TContext> | TSignature<TContext>[] = [],
     config?: TConfig
   ): ICommandDefinition<TContext, TConfigExtra> {
     // If we're overriding the default prefix, convert the new prefix to a regex (or keep it as null for no prefix)
@@ -115,9 +117,7 @@ export class CommandManager<
     }
 
     // Combine all triggers (main trigger + aliases) to a regex
-    const triggers = [trigger];
-    if (config && config.aliases) triggers.push(...config.aliases);
-
+    const triggers = Array.isArray(trigger) ? trigger : [trigger];
     const regexTriggers = triggers.map(trigger => {
       if (typeof trigger === "string") {
         return new RegExp(`^${escapeStringRegex(trigger)}(?=\\s|$)`, "i");
@@ -128,20 +128,12 @@ export class CommandManager<
 
     // Like triggers and their aliases, signatures (parameter lists) are provided through both the "parameters" argument
     // and the "overloads" config value
-    const inputSignatures = [parameters];
-    if (config && config.overloads) inputSignatures.push(...config.overloads);
-
-    const signatures = inputSignatures.map(signature => {
-      // If parameters are provided in string format, parse them
-      if (typeof signature === "string") {
-        signature = parseParameters(signature);
-      } else if (signature == null) {
-        signature = [];
-      }
-
-      signature = signature.map(obj => Object.assign({ type: this.defaultType }, defaultParameter, obj));
-
-      return signature;
+    const inputSignatures = isArrayOfSignatures(parameters) ? parameters : [parameters];
+    const signatures = inputSignatures.map(inputSignature => {
+      return inputSignature.map(param => ({
+        ...defaultParameter,
+        ...param
+      }));
     });
 
     // Validate signatures to prevent unsupported behaviour
@@ -151,10 +143,6 @@ export class CommandManager<
       let hadCatchAll = false;
 
       signature.forEach(param => {
-        if (!this.types[param.type]) {
-          throw new Error(`Unknown parameter type: ${param.type}`);
-        }
-
         if (!param.required) {
           if (hadOptional) {
             throw new Error(`Can only have 1 optional parameter to avoid ambiguity`);
@@ -264,11 +252,11 @@ export class CommandManager<
         if (!passed) continue;
       }
 
-      const matchResult = await this.tryMatchingCommand(command, str, filterContext as TContext);
-      if (matchResult === null) continue;
+      const matchedCommand = await this.tryMatchingCommand(command, str, filterContext as TContext);
+      if (matchedCommand === null) continue;
 
-      if (isError(matchResult)) {
-        lastError = matchResult.error;
+      if (isError(matchedCommand)) {
+        lastError = matchedCommand.error;
         lastErrorCmd = command;
         continue;
       }
@@ -278,13 +266,13 @@ export class CommandManager<
       if (command.postFilters.length) {
         let passed = false;
         for (const filter of command.postFilters) {
-          passed = await filter(matchResult.command, filterContext as TContext);
+          passed = await filter(matchedCommand, filterContext as TContext);
           if (!passed) break;
         }
         if (!passed) continue;
       }
 
-      return matchResult.command;
+      return matchedCommand;
     }
 
     if (onlyErrors && lastError !== null) {
@@ -317,7 +305,7 @@ export class CommandManager<
     command: ICommandDefinition<TContext, TConfigExtra>,
     str: string,
     context: TContext
-  ): Promise<TOrError<ITryMatchingCommandResult<TContext, TConfigExtra>> | null> {
+  ): Promise<TOrError<IMatchedCommand<TContext, TConfigExtra>> | null> {
     if (command.prefix) {
       const prefixMatch = str.match(command.prefix);
       if (!prefixMatch) return null;
@@ -336,7 +324,7 @@ export class CommandManager<
 
     const parsedArguments = parseArguments(str);
 
-    let signatureMatchResult: TOrError<ITryMatchingArgumentsToSignatureResult> | null = null;
+    let signatureMatchResult: TOrError<IMatchedSignature<TContext>> | null = null;
     for (const signature of command.signatures) {
       signatureMatchResult = await this.tryMatchingArgumentsToSignature(
         command,
@@ -357,23 +345,21 @@ export class CommandManager<
     }
 
     return {
-      command: {
-        ...command,
-        args: signatureMatchResult.args,
-        opts: signatureMatchResult.opts
-      }
+      ...command,
+      args: signatureMatchResult.args,
+      opts: signatureMatchResult.opts
     };
   }
 
   protected async tryMatchingArgumentsToSignature(
     command: ICommandDefinition<TContext, TConfigExtra>,
     parsedArguments: TParsedArguments,
-    signature: TSignature,
+    signature: TSignature<TContext>,
     str: string,
     context: TContext
-  ): Promise<TOrError<ITryMatchingArgumentsToSignatureResult>> {
-    const args: IArgumentMap = {};
-    const opts: IMatchedOptionMap = {};
+  ): Promise<TOrError<IMatchedSignature<TContext>>> {
+    const args: IArgumentMap<TContext> = {};
+    const opts: IMatchedOptionMap<TContext> = {};
 
     let paramIndex = 0;
     for (let i = 0; i < parsedArguments.length; i++) {
@@ -497,11 +483,11 @@ export class CommandManager<
         if (arg.parameter.rest) {
           const values: any[] = [];
           for (const value of arg.value) {
-            values.push(await this.convertToArgumentType(value, arg.parameter.type || this.defaultType, context));
+            values.push(await arg.parameter.type(value, context));
           }
           arg.value = values;
         } else {
-          arg.value = await this.convertToArgumentType(arg.value, arg.parameter.type || this.defaultType, context);
+          arg.value = await arg.parameter.type(arg.value, context);
         }
       } catch (e) {
         if (e instanceof TypeConversionError) {
@@ -513,16 +499,19 @@ export class CommandManager<
     }
 
     for (const opt of Object.values(opts)) {
-      if (opt.option.isSwitch) continue;
-      if (opt.usesDefaultValue) continue;
-      try {
-        opt.value = await this.convertToArgumentType(opt.value, opt.option.type || this.defaultType, context);
-      } catch (e) {
-        if (e instanceof TypeConversionError) {
-          return { error: `Could not convert option ${opt.option.name} to type ${opt.option.type}` };
-        }
+      if (isSwitchOption(opt.option)) {
+        continue;
+      } else {
+        if (opt.usesDefaultValue) continue;
+        try {
+          opt.value = await opt.option.type(opt.value, context);
+        } catch (e) {
+          if (e instanceof TypeConversionError) {
+            return { error: `Could not convert option ${opt.option.name} to type ${opt.option.type}` };
+          }
 
-        throw e;
+          throw e;
+        }
       }
     }
 
@@ -530,9 +519,5 @@ export class CommandManager<
       args,
       opts
     };
-  }
-
-  protected convertToArgumentType(value: any, type: string, context: TContext): any {
-    return this.types[type](value, context);
   }
 }

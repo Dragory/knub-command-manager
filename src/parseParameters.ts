@@ -1,4 +1,5 @@
-import { IParameter } from "./types";
+import { IParameter, TTypeConverterFn } from "./types";
+import { defaultParameterTypes } from "./defaultParameterTypes";
 
 const paramDefinitionSimpleRegex = /[<\[].*?[>\]]/g;
 
@@ -13,11 +14,15 @@ const paramDefinitionRegex = new RegExp(
   "i"
 );
 
-export function parseParameters(str: string): IParameter[] {
+export function parseParameters<TContext = any>(
+  str: string,
+  types: Record<string, TTypeConverterFn<TContext>> = defaultParameterTypes,
+  defaultType = "string"
+): IParameter<TContext>[] {
   const parameterDefinitions = str.match(paramDefinitionSimpleRegex) || [];
 
   return parameterDefinitions.map(
-    (parameterDefinition, i): IParameter => {
+    (parameterDefinition, i): IParameter<TContext> => {
       const details = parameterDefinition.match(paramDefinitionRegex);
       if (!details) {
         throw new Error(`Invalid parameter definition: ${parameterDefinition}`);
@@ -32,9 +37,14 @@ export function parseParameters(str: string): IParameter[] {
         defaultValue = [];
       }
 
+      const typeName = details[2] || defaultType;
+      if (types[typeName] == null) {
+        throw new Error(`Unknown parameter type: ${typeName}`);
+      }
+
       return {
         name: details[1],
-        type: details[2] || "string",
+        type: types[typeName],
         required: !isOptional,
         def: defaultValue,
         rest: isRest,

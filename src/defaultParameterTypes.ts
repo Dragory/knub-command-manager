@@ -1,7 +1,7 @@
 import { TTypeConverterFn } from "./types";
 import { TypeConversionError } from "./TypeConversionError";
 
-export const defaultParameterTypes: { [key: string]: TTypeConverterFn<any> } = {
+export const defaultParameterTypes: Record<string, TTypeConverterFn<any>> = {
   string(value): string {
     return String(value);
   },
