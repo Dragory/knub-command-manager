@@ -35,7 +35,7 @@ framework, but can also be used as standalone.
 ## Basic usage
 
 ```js
-import { CommandManager, parseParameters as p, string } from 'knub-command-manager';
+import { CommandManager, parseSignature as p, string } from 'knub-command-manager';
 
 const manager = new CommandManager({
   prefix: '!'
