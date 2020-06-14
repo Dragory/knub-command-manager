@@ -364,9 +364,6 @@ export class CommandManager<
             const [optName, opt] =
               options.find(([name, opt]) => name === matchedOptName || opt.shortcut === matchedOptName) ?? [];
             if (!optName || !opt) {
-              console.log("s", parameters, options);
-              console.log("wanted", matchedOptName);
-              console.log("got", optName, opt);
               return { error: `Unknown option: ${matchingOptionPrefix}${matchedOptName}` };
             }
 
