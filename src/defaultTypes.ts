@@ -18,26 +18,18 @@ export const defaultTypeConverters = {
 
 export type TTypeHelperResult<TInput, TType> = TInput & { type: TTypeConverterFn<TType, any> };
 
-export const string = <T>(opts?: T) => {
-  return {
-    ...(opts || {}),
-    type: defaultTypeConverters.string,
-  } as TTypeHelperResult<T, string>;
-};
+export function createTypeHelper<TReturnType>(converterFn: TTypeConverterFn<TReturnType, any>) {
+  return <T>(opts?: T) => {
+    return {
+      ...(opts || {}),
+      type: converterFn,
+    } as TTypeHelperResult<T, TReturnType>;
+  };
+}
 
-export const number = <T>(opts?: T) => {
-  return {
-    ...opts,
-    type: defaultTypeConverters.number,
-  } as TTypeHelperResult<T, number>;
-};
-
-export const bool = <T>(opts?: T) => {
-  return {
-    ...opts,
-    type: defaultTypeConverters.bool,
-  } as TTypeHelperResult<T, boolean>;
-};
+export const string = createTypeHelper<string>(defaultTypeConverters.string);
+export const number = createTypeHelper<number>(defaultTypeConverters.number);
+export const bool = createTypeHelper<boolean>(defaultTypeConverters.bool);
 
 export const switchOption = <T>(opts?: T) => {
   return {
@@ -45,5 +37,5 @@ export const switchOption = <T>(opts?: T) => {
     option: true,
     isSwitch: true,
     type: defaultTypeConverters.bool,
-  } as TTypeHelperResult<T, boolean>;
+  } as TTypeHelperResult<T, boolean> & { option: true; isSwitch: true };
 };
