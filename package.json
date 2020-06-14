@@ -5,7 +5,8 @@
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
   "scripts": {
-    "test": "mocha --exit -r ts-node/register src/**/*.test.ts -- --trace-warnings",
+    "test-base": "mocha --exit -r ts-node/register",
+    "test": "npm run test-base src/**/*.test.ts -- --trace-warnings",
     "build": "touch dist && rm -r dist && tsc",
     "preversion": "npm run test",
     "prepublishOnly": "npm run test && npm run build",
