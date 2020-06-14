@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.switchOption = exports.bool = exports.number = exports.string = exports.defaultTypeConverters = void 0;
+exports.switchOption = exports.bool = exports.number = exports.string = exports.createTypeHelper = exports.defaultTypeConverters = void 0;
 const TypeConversionError_1 = require("./TypeConversionError");
 exports.defaultTypeConverters = {
     string(value, context) {
@@ -15,24 +15,18 @@ exports.defaultTypeConverters = {
         return value === "true" || value === "1";
     },
 };
-exports.string = (opts) => {
-    return {
-        ...(opts || {}),
-        type: exports.defaultTypeConverters.string,
+function createTypeHelper(converterFn) {
+    return (opts) => {
+        return {
+            ...(opts || {}),
+            type: converterFn,
+        };
     };
-};
-exports.number = (opts) => {
-    return {
-        ...opts,
-        type: exports.defaultTypeConverters.number,
-    };
-};
-exports.bool = (opts) => {
-    return {
-        ...opts,
-        type: exports.defaultTypeConverters.bool,
-    };
-};
+}
+exports.createTypeHelper = createTypeHelper;
+exports.string = createTypeHelper(exports.defaultTypeConverters.string);
+exports.number = createTypeHelper(exports.defaultTypeConverters.number);
+exports.bool = createTypeHelper(exports.defaultTypeConverters.bool);
 exports.switchOption = (opts) => {
     return {
         ...opts,
