@@ -5,7 +5,7 @@ export interface ICommandManagerOptions<TContext> {
 
 // Parameters
 export interface IParameter<TContext> {
-  type: TTypeConverterFn<TContext>;
+  type: TTypeConverterFn<any, TContext>;
   required?: boolean;
   def?: any;
   rest?: boolean;
@@ -17,7 +17,7 @@ export interface IParameter<TContext> {
 export type TOption<TContext> = {
   option: true;
   shortcut?: string;
-  type: TTypeConverterFn<TContext>;
+  type: TTypeConverterFn<any, TContext>;
   isSwitch?: boolean;
   def?: any;
 };
@@ -91,4 +91,6 @@ export interface IFindMatchingCommandError<TContext, TExtra> extends TBaseError 
   command: ICommandDefinition<TContext, TExtra>;
 }
 
-export type TTypeConverterFn<TContext> = ((value: any) => any) | ((value: any, context: TContext) => any);
+export type TTypeConverterFn<TReturnType, TContext> =
+  | ((value: any) => TReturnType)
+  | ((value: any, context: TContext) => TReturnType);

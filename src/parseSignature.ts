@@ -3,7 +3,7 @@ import { defaultTypeConverters } from "./defaultTypes";
 
 export function parseSignature<TContext = any>(
   str: string,
-  types: Record<string, TTypeConverterFn<TContext>> = defaultTypeConverters,
+  types: Record<string, TTypeConverterFn<any, TContext>> = defaultTypeConverters,
   defaultType = "string",
 ): TSignature<TContext> {
   if (!types[defaultType]) {
