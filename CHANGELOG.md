@@ -1,5 +1,11 @@
 # Changelog
 
+## 8.1.0
+* New helper function: `createTypeHelper()`
+  * This function can be used to create a helper wrapper for
+    a parameter/option type
+* Type tests added for default parameter/option types
+
 ## 8.0.0
 Version `8.0.0` comes with several changes aimed at simplifying the API and
 providing a better base for type inference in applications using `knub-command-manager`.
