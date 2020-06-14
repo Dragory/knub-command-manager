@@ -10,59 +10,53 @@ export interface IParameter<TContext> {
   def?: any;
   rest?: boolean;
   catchAll?: boolean;
+  option?: false;
 }
 
-export type TSignature<TContext> = Record<string, IParameter<TContext>>;
+// Options
+export type TOption<TContext> = {
+  option: true;
+  shortcut?: string;
+  type: TTypeConverterFn<TContext>;
+  isSwitch?: boolean;
+  def?: any;
+};
 
-// Arguments
-export interface IArgument<TContext> {
+export type TSignature<TContext> = Record<string, IParameter<TContext> | TOption<TContext>>;
+
+// Matched arguments
+export interface IMatchedArgument<TContext> {
   parameter: IParameter<TContext>;
   value: any;
   usesDefaultValue?: true;
 }
 
-export interface IArgumentMap<TContext> {
-  [name: string]: IArgument<TContext>;
-}
-
-// Options
-export type TBaseOption = { name: string; shortcut?: string };
-export type TOptionWithValue<TContext> = TBaseOption & {
-  type: TTypeConverterFn<TContext>;
-  required?: boolean;
-  def?: any;
-  isSwitch?: false;
-};
-export type TSwitchOption = TBaseOption & { isSwitch: true };
-export type TOption<TContext> = TOptionWithValue<TContext> | TSwitchOption;
-
-export function isSwitchOption(option: TOption<any>): option is TSwitchOption {
-  return option.isSwitch === true;
-}
-
+// Matched options
 export interface IMatchedOption<TContext> {
   option: TOption<TContext>;
   value: any;
   usesDefaultValue?: true;
 }
 
-export interface IMatchedOptionMap<TContext> {
-  [name: string]: IMatchedOption<TContext>;
+export type IMatchedSignature<TContext> = Record<string, IMatchedArgument<TContext> | IMatchedOption<TContext>>;
+
+export function isMatchedArgument(value: IMatchedArgument<any> | IMatchedOption<any>): value is IMatchedArgument<any> {
+  return (value as any).parameter != null;
 }
 
-// Commands
+// Filters
 export type TPreFilterFn<TContext, TExtra> = (
   command: ICommandDefinition<TContext, TExtra>,
-  context: TContext
+  context: TContext,
 ) => boolean | Promise<boolean>;
 export type TPostFilterFn<TContext, TExtra> = (
   command: IMatchedCommand<TContext, TExtra>,
-  context: TContext
+  context: TContext,
 ) => boolean | Promise<boolean>;
 
+// Command data
 export interface ICommandConfig<TContext, TExtra> {
   prefix?: string | RegExp;
-  options?: TOption<TContext>[];
   preFilters?: TPreFilterFn<TContext, TExtra>[];
   postFilters?: TPostFilterFn<TContext, TExtra>[];
   extra?: TExtra;
@@ -75,48 +69,26 @@ export interface ICommandDefinition<TContext, TExtra> {
   triggers: RegExp[];
   originalTriggers: Array<string | RegExp>;
   signatures: TSignature<TContext>[];
-  options: TOption<TContext>[];
   preFilters: TPreFilterFn<TContext, TExtra>[];
   postFilters: TPostFilterFn<TContext, TExtra>[];
   config: ICommandConfig<TContext, TExtra> | null;
 }
 
 // Relevant: https://github.com/Microsoft/TypeScript/issues/12815
-export type TError = { error: string };
-export type TOrError<T> = T | TError;
+export type TBaseError = { error: string };
+export type TOrError<T, TError extends TBaseError = TBaseError> = T | TError;
 
-export function isError(value: TOrError<any>): value is TError {
+export function isError(value: TOrError<any>): value is TBaseError {
   return value.error != null;
 }
 
-export interface ITryMatchingCommandResult<TContext, TExtra> {
-  command: IMatchedCommand<TContext, TExtra>;
-}
-
-export interface IMatchedSignature<TContext> {
-  args: IArgumentMap<TContext>;
-  opts: IMatchedOptionMap<TContext>;
-}
-
 export interface IMatchedCommand<TContext, TExtra> extends ICommandDefinition<TContext, TExtra> {
-  args: IArgumentMap<TContext>;
-  opts: IMatchedOptionMap<TContext>;
+  values: IMatchedSignature<TContext>;
   error?: never;
 }
 
-export interface IFindMatchingCommandError<TContext, TExtra> {
-  error: string;
+export interface IFindMatchingCommandError<TContext, TExtra> extends TBaseError {
   command: ICommandDefinition<TContext, TExtra>;
-}
-
-export type TFindMatchingCommandResult<TContext, TExtra> =
-  | IMatchedCommand<TContext, TExtra>
-  | IFindMatchingCommandError<TContext, TExtra>;
-
-export function findMatchingCommandResultHasError<TContext, TExtra>(
-  result: TFindMatchingCommandResult<TContext, TExtra>
-): result is IFindMatchingCommandError<TContext, TExtra> {
-  return result.error != null;
 }
 
 export type TTypeConverterFn<TContext> = ((value: any) => any) | ((value: any, context: TContext) => any);

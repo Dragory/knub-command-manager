@@ -13,7 +13,7 @@ export const defaultTypeConverters: Record<string, TTypeConverterFn<any>> = {
 
   bool(value): boolean {
     return value === "true" || value === "1";
-  }
+  },
 };
 
 export type TTypeHelperResult<T> = T & { type: TTypeConverterFn<any> };
@@ -22,20 +22,29 @@ export type TTypeHelper = <T>(opts?: T) => T & { type: TTypeConverterFn<any> };
 export const string: TTypeHelper = <T>(opts?: T) => {
   return {
     ...(opts || {}),
-    type: defaultTypeConverters.string
+    type: defaultTypeConverters.string,
   } as TTypeHelperResult<T>;
 };
 
 export const number: TTypeHelper = <T>(opts?: T) => {
   return {
     ...opts,
-    type: defaultTypeConverters.number
+    type: defaultTypeConverters.number,
   } as TTypeHelperResult<T>;
 };
 
 export const bool: TTypeHelper = <T>(opts?: T) => {
   return {
     ...opts,
-    type: defaultTypeConverters.bool
+    type: defaultTypeConverters.bool,
+  } as TTypeHelperResult<T>;
+};
+
+export const switchOption: TTypeHelper = <T>(opts?: T) => {
+  return {
+    ...opts,
+    option: true,
+    isSwitch: true,
+    type: defaultTypeConverters.bool,
   } as TTypeHelperResult<T>;
 };

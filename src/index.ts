@@ -2,6 +2,6 @@ export * from "./types";
 
 export { CommandManager } from "./CommandManager";
 export { parseArguments } from "./parseArguments";
-export { parseParameters } from "./parseParameters";
+export { parseSignature } from "./parseSignature";
 export * from "./defaultTypes";
 export { TypeConversionError } from "./TypeConversionError";
