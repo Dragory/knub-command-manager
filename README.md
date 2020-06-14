@@ -10,7 +10,7 @@ framework, but can also be used as standalone.
 ## Features
 * Command prefixes (e.g. `!command` where `!` is the prefix)
 * Regex support for prefixes and command names
-* Required and optional arguments
+* Required and optional parameters
 * `-options` and `-switches` with shortcuts (e.g. `-f`)
   * Customizable option prefixes (defaults to `--` and `-`)
 * Parameter/option types with runtime validation and type conversion
