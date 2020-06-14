@@ -133,6 +133,9 @@ providing a better base for type inference in applications using `knub-command-m
     p("<baz>")
   ])
   ```
+* Deprecated `CommandManager.findMatchingCommandResultHasError()`. Use `isError()` instead.
+* `IMatchedCommand` now contains a `values` property that replaces the previous `args` and `opts` properties.
+  * This interface is returned by `CommandManager.findMatchingCommand()` and `CommandManager.tryMatchingCommand()`
 
 ## 7.1.0
 * The previously-internal `CommandManager.tryMatchingCommand()` is now a public
