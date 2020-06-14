@@ -1,5 +1,139 @@
 # Changelog
 
+## 8.0.0
+Version `8.0.0` comes with several changes aimed at simplifying the API and
+providing a better base for type inference in applications using `knub-command-manager`.
+
+### Breaking changes
+* You can no longer pass parameters as a string and have it implicitly parsed.
+  Instead, use the `parseSignature` function.
+
+  From:
+  ```ts
+  manager.add("foo", "<arg1> <arg2>")
+  ````
+
+  To:
+  ```ts
+  import { parseSignature as p } from "knub-command-manager"
+  manager.add("foo", p("<arg1> <arg2>"))
+  ```
+* Parameters are now specified as an object rather than an array.
+
+  From:
+  ```ts
+  manager.add("foo", [
+    { name: "arg1", type: "string" },
+    { name: "arg2", type: "number" }
+  ])
+  ```
+
+  To:
+  ```ts
+  manager.add("foo", {
+    arg1: { type: t.string },
+    arg2: { type: t.number }
+  })
+  ```
+* Types are now specified as the type conversion function directly.
+  This also means that the CommandManager object no longer has an internal
+  "types" object for converting from string types to the actual function.
+
+  From:
+  ```ts
+  manager.add("foo", {
+    arg1: { type: "string" },
+    arg2: { type: "number" }
+  })
+  ```
+
+  To:
+  ```ts
+  import { defaultTypeConverters as t } from "knub-command-manager";
+  manager.add("foo", {
+    arg1: { type: t.string },
+    arg2: { type: t.number }
+  })
+  ```
+  * There are several helper functions for the default types.
+
+    From:
+    ```ts
+    import { defaultTypeConverters as t } from "knub-command-manager";
+    manager.add("foo", {
+      arg1: { type: t.string },
+      arg2: { type: t.number }
+    })
+    ```
+
+    To:
+    ```ts
+    import { string, number } from "knub-command-manager";
+    manager.add("foo", {
+      arg1: string(),
+      arg2: number()
+    })
+    ```
+
+  * `parseSignature` now takes extra parameters for parameter types:
+
+    ```ts
+    // parseSignature(signature, types, defaultType)
+    parseSignature("<foo:mytype>", { mytype: () => { /* ... */ } }, "mytype")
+    ```
+* Options are no longer specified in the command's config.
+  Instead, options are now specified as part of the command's signature:
+
+  From:
+  ```ts
+  manager.add("foo", [], {
+    options: [
+      { name: "myopt", shortcut: "o", type: "string" },
+    ],
+  })
+  ```
+
+  To:
+  ```ts
+  manager.add("foo", {
+    myopt: string({ option: true, shortcut: "o" })
+  })
+  ```
+
+  Or with `parseSignature`:
+  ```ts
+  manager.add("foo", parseSignature("-myopt|o"))
+  ```
+* Aliases are no longer specified in the command's config.
+  Instead, you can now set an array as the command's trigger.
+
+  From:
+  ```ts
+  manager.add("foo", [], { aliases: ["bar"] })
+  ```
+
+  To:
+  ```ts
+  manager.add(["foo", "bar"])
+  ```
+* Overloads are no longer specified in the command's config.
+  Instead, you can now set an array as the command's signature.
+
+  From:
+  ```ts
+  manager.add("foo", "<foo> <bar>", {
+    overloads: ["<baz>"]
+  })
+  ```
+
+  To:
+  ```ts
+  manager.add("foo", [
+    p("<foo> <bar>"),
+    p("<baz>")
+  ])
+  ```
+
 ## 7.1.0
 * The previously-internal `CommandManager.tryMatchingCommand()` is now a public
   method. It can be used to do more granular matching than with

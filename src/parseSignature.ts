@@ -18,7 +18,7 @@ export function parseSignature<TContext = any>(
   let currentParameter: Partial<IParameter<TContext>> = {};
   let currentName = "";
 
-  let state: "name" | "type" | "value" | null = null;
+  let state: "name" | "shortcut" | "type" | "value" | null = null;
   let currentLiteral = "";
   let quoted = false;
 
@@ -39,6 +39,12 @@ export function parseSignature<TContext = any>(
     } else if (state === "value") {
       if (currentItem === "parameter") currentParameter.def = currentLiteral;
       else if (currentItem === "option") currentOption.def = currentLiteral;
+    } else if (state === "shortcut") {
+      if (currentItem !== "option") {
+        throw new Error("Shortcuts can only be specified for options");
+      }
+
+      currentOption.shortcut = currentLiteral;
     } else {
       throw new Error("Can't flush from empty state");
     }
@@ -90,6 +96,9 @@ export function parseSignature<TContext = any>(
     } else if (char === "-") {
       state = "name";
       currentItem = "option";
+    } else if (char === "|" && currentItem === "option" && state === "name") {
+      flush();
+      state = "shortcut";
     } else if (char === ":") {
       flush();
       state = "type";

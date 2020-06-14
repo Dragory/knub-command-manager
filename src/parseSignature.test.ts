@@ -110,6 +110,17 @@ describe("parseSignature", () => {
     });
   });
 
+  it("Parse option with shortcut", () => {
+    const result = parseSignature("-opt|o:string=hi");
+    expect(result.opt).to.eql({
+      option: true,
+      type: defaultTypeConverters.string,
+      isSwitch: false,
+      shortcut: "o",
+      def: "hi",
+    });
+  });
+
   it("Parse multiple parameters", () => {
     const result = parseSignature("<arg1:string> <arg2:number>");
     expect(result).to.eql({
