@@ -1,4 +1,4 @@
-import { IParameter, TTypeConverterFn } from "./types";
+import { IParameter, TOption, TTypeConverterFn } from "./types";
 import { TypeConversionError } from "./TypeConversionError";
 
 export const defaultTypeConverters = {
@@ -17,9 +17,10 @@ export const defaultTypeConverters = {
 };
 
 export type TTypeHelperResult<TInput, TType> = TInput & { type: TTypeConverterFn<TType, any> };
+export type TTypeHelperOpts = Omit<IParameter<any>, "type"> | Omit<TOption<any>, "type">;
 
 export function createTypeHelper<TReturnType>(converterFn: TTypeConverterFn<TReturnType, any>) {
-  return <T>(opts?: T) => {
+  return <T extends TTypeHelperOpts>(opts?: T) => {
     return {
       ...(opts || {}),
       type: converterFn,
@@ -31,7 +32,8 @@ export const string = createTypeHelper<string>(defaultTypeConverters.string);
 export const number = createTypeHelper<number>(defaultTypeConverters.number);
 export const bool = createTypeHelper<boolean>(defaultTypeConverters.bool);
 
-export const switchOption = <T>(opts?: T) => {
+type TSwitchOptionOpts = Omit<TOption<any>, "option" | "isSwitch" | "type">;
+export const switchOption = <T extends TSwitchOptionOpts>(opts?: T) => {
   return {
     ...opts,
     option: true,
