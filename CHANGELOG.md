@@ -1,5 +1,9 @@
 # Changelog
 
+## 8.1.1
+* Improved type hints for default type helpers (`string()`, `number()`, `bool()`, `switchOption()`)
+  and custom type helpers created with `createTypeHelper()`
+
 ## 8.1.0
 * New helper function: `createTypeHelper()`
   * This function can be used to create a helper wrapper for
