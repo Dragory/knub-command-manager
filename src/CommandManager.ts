@@ -477,7 +477,7 @@ export class CommandManager<
           }
         } catch (e) {
           if (e instanceof TypeConversionError) {
-            return { error: `Could not convert argument ${name}'s type: ${e.message}` };
+            return { error: `Invalid value for argument '${name}': ${e.message}` };
           }
 
           throw e;
@@ -490,7 +490,7 @@ export class CommandManager<
             opt.value = await opt.option.type(opt.value, context);
           } catch (e) {
             if (e instanceof TypeConversionError) {
-              return { error: `Could not convert option ${name} to type ${opt.option.type}` };
+              return { error: `Invalid value for option '${name}': ${e.message}` };
             }
 
             throw e;

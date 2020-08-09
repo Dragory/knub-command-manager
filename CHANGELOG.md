@@ -1,5 +1,9 @@
 # Changelog
 
+## 8.1.2
+* Invalid option values no longer dump the entire type conversion function in the error
+* Reworded errors for invalid argument/option values
+
 ## 8.1.1
 * Improved type hints for default type helpers (`string()`, `number()`, `bool()`, `switchOption()`)
   and custom type helpers created with `createTypeHelper()`
