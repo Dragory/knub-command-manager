@@ -1,5 +1,13 @@
 # Changelog
 
+## 9.0.0
+* **BREAKING CHANGE:** Command signature objects (`TSignature`) may now include `undefined` properties for type purposes
+  * See the comment for `TSignature` for an in-depth explanation of this
+  * These properties are silently ignored if actually included in the signature objects
+
+## 8.1.3
+* Add proper method signature overloads for ``
+
 ## 8.1.2
 * Invalid option values no longer dump the entire type conversion function in the error
 * Reworded errors for invalid argument/option values
