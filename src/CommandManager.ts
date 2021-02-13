@@ -32,7 +32,7 @@ const defaultParameter: Partial<IParameter<any>> = {
   catchAll: false,
 };
 
-function toSafeSignature<TContext>(signature: TSignature<TContext>): TSafeSignature<TContext> {
+export function toSafeSignature<TContext>(signature: TSignature<TContext>): TSafeSignature<TContext> {
   return Object.entries(signature).reduce((obj, [key, value]) => {
     if (value != null) {
       obj[key] = value;
