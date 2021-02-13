@@ -22,7 +22,18 @@ export type TOption<TContext> = {
   def?: any;
 };
 
-export type TSignature<TContext> = Record<string, IParameter<TContext> | TOption<TContext>>;
+/**
+ * A signature - a set of parameters - for a command
+ *
+ * `undefined` is included as an allowed value here because if you have an array of signature objects,
+ * TypeScript will interpret that array's type as being an array of a union of each signature within that array,
+ * with each of those signatures having the other signatures' properties that they don't have as optional properties.
+ * E.g. `[{foo: 5}, {bar: "text"}]` would have the type `({foo: number, bar?: undefined} | {foo?: undefined, bar: string})[]`
+ * If you then wanted to pass this type to a generic that expects an array of TSignatures, it would be rejected because
+ * of the optional properties with `undefined` as their type. Including `undefined` here fixes this.
+ */
+export type TSignature<TContext> = Record<string, IParameter<TContext> | TOption<TContext> | undefined>;
+export type TSafeSignature<TContext> = Record<string, IParameter<TContext> | TOption<TContext>>;
 
 // Matched arguments
 export interface IMatchedArgument<TContext> {

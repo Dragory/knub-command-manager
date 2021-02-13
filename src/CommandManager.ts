@@ -15,6 +15,7 @@ import {
   IMatchedOption,
   TOption,
   isMatchedArgument,
+  TSafeSignature,
 } from "./types";
 import { defaultTypeConverters } from "./defaultTypes";
 import { parseArguments, TParsedArguments } from "./parseArguments";
@@ -30,6 +31,16 @@ const defaultParameter: Partial<IParameter<any>> = {
   rest: false,
   catchAll: false,
 };
+
+function toSafeSignature<TContext>(signature: TSignature<TContext>): TSafeSignature<TContext> {
+  return Object.entries(signature).reduce((obj, [key, value]) => {
+    if (value != null) {
+      obj[key] = value;
+    }
+
+    return obj;
+  }, {});
+}
 
 export class CommandManager<
   TContext = null,
@@ -117,7 +128,7 @@ export class CommandManager<
     // Like triggers and their aliases, signatures (parameter lists) are provided through both the "parameters" argument
     // and the "overloads" config value
     const inputSignatures = Array.isArray(signature) ? signature : [signature];
-    const signatures: TSignature<TContext>[] = inputSignatures.map((inputSignature) => {
+    const signatures: TSafeSignature<TContext>[] = inputSignatures.map((inputSignature) => {
       return Object.entries(inputSignature).reduce((obj, [name, param]) => {
         obj[name] = {
           ...defaultParameter,
@@ -309,9 +320,10 @@ export class CommandManager<
 
     const parsedArguments = parseArguments(str);
     const signatures = command.signatures.length > 0 ? command.signatures : [{}];
+    const safeSignatures = signatures.map((s) => toSafeSignature(s));
 
     let signatureMatchResult: TOrError<IMatchedSignature<TContext>> = { error: "?" };
-    for (const signature of signatures) {
+    for (const signature of safeSignatures) {
       signatureMatchResult = await this.tryMatchingArgumentsToSignature(
         command,
         parsedArguments,
@@ -335,7 +347,7 @@ export class CommandManager<
   protected async tryMatchingArgumentsToSignature(
     command: ICommandDefinition<TContext, TConfigExtra>,
     parsedArguments: TParsedArguments,
-    signature: TSignature<TContext>,
+    signature: TSafeSignature<TContext>,
     str: string,
     context: TContext,
   ): Promise<TOrError<IMatchedSignature<TContext>>> {
