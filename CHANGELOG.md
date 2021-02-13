@@ -1,5 +1,8 @@
 # Changelog
 
+## 9.1.0
+* Export `toSafeSignature()` to convert from `TSignature` to `TSafeSignautre`
+
 ## 9.0.0
 * **BREAKING CHANGE:** Command signature objects (`TSignature`) may now include `undefined` properties for type purposes
   * See the comment for `TSignature` for an in-depth explanation of this
