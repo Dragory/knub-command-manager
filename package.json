@@ -14,7 +14,7 @@
     "format": "prettier --write \"src/**/*.ts\""
   },
   "keywords": [],
-  "author": "Miikka Virtanen <contact@mivir.fi>",
+  "author": "Miikka <contact@mivir.fi>",
   "license": "MIT",
   "dependencies": {
     "escape-string-regexp": "^2.0.0"
