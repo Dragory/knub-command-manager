@@ -252,15 +252,6 @@ export class CommandManager<
     const filterContext = context[0];
 
     for (const command of this.commands) {
-      if (command.preFilters.length) {
-        let passed = false;
-        for (const filter of command.preFilters) {
-          passed = await filter(command, filterContext as TContext);
-          if (!passed) break;
-        }
-        if (!passed) continue;
-      }
-
       const matchedCommand = await this.tryMatchingCommand(command, str, filterContext as TContext);
       if (matchedCommand === null) continue;
 
@@ -268,6 +259,15 @@ export class CommandManager<
         lastError = matchedCommand.error;
         lastErrorCmd = command;
         continue;
+      }
+
+      if (command.preFilters.length) {
+        let passed = false;
+        for (const filter of command.preFilters) {
+          passed = await filter(command, filterContext as TContext);
+          if (!passed) break;
+        }
+        if (!passed) continue;
       }
 
       onlyErrors = false;
