@@ -252,14 +252,8 @@ export class CommandManager<
     const filterContext = context[0];
 
     for (const command of this.commands) {
-      const matchedCommand = await this.tryMatchingCommand(command, str, filterContext as TContext);
-      if (matchedCommand === null) continue;
-
-      if (isError(matchedCommand)) {
-        lastError = matchedCommand.error;
-        lastErrorCmd = command;
-        continue;
-      }
+      const argString = this.takeCommandArguments(command, str);
+      if (argString === null) continue;
 
       if (command.preFilters.length) {
         let passed = false;
@@ -268,6 +262,15 @@ export class CommandManager<
           if (!passed) break;
         }
         if (!passed) continue;
+      }
+
+      const matchedCommand = await this.tryMatchingSignature(command, argString, filterContext as TContext);
+      if (matchedCommand === null) continue;
+
+      if (isError(matchedCommand)) {
+        lastError = matchedCommand.error;
+        lastErrorCmd = command;
+        continue;
       }
 
       onlyErrors = false;
@@ -295,13 +298,9 @@ export class CommandManager<
   }
 
   /**
-   * Attempts to match the given command to a string.
+   * Returns the argument string of the string if it matches the provided command, otherwise null.
    */
-  public async tryMatchingCommand(
-    command: ICommandDefinition<TContext, TConfigExtra>,
-    str: string,
-    context: TContext,
-  ): Promise<TOrError<IMatchedCommand<TContext, TConfigExtra>> | null> {
+  public takeCommandArguments(command: ICommandDefinition<TContext, TConfigExtra>, str: string): string | null {
     if (command.prefix) {
       const prefixMatch = str.match(command.prefix);
       if (!prefixMatch) return null;
@@ -316,8 +315,17 @@ export class CommandManager<
         str = str.slice(triggerMatch[0].length);
       }
     }
-    if (!matchedTrigger) return null;
+    return matchedTrigger ? str : null;
+  }
 
+  /**
+   * Attempts to match the given command's signature to an argument string.
+   */
+  public async tryMatchingSignature(
+    command: ICommandDefinition<TContext, TConfigExtra>,
+    str: string,
+    context: TContext,
+  ): Promise<TOrError<IMatchedCommand<TContext, TConfigExtra>> | null> {
     const parsedArguments = parseArguments(str);
     const signatures = command.signatures.length > 0 ? command.signatures : [{}];
     const safeSignatures = signatures.map((s) => toSafeSignature(s));
